@@ -47,6 +47,8 @@ class QGFV:
         self.ny = param["ny"]
         self.nx = param["nx"]
         n_ens, nl, nx, ny = self.n_ens, self.nl, self.nx, self.ny
+        self.psi_shape = (self.n_ens, self.nl, self.nx + 1, self.ny + 1)
+        self.q_shape = (self.n_ens, self.nl, self.nx, self.ny)
         self.dx = torch.tensor(self.Lx / nx, **self.arr_kwargs)
         self.dy = torch.tensor(self.Ly / ny, **self.arr_kwargs)
         self.flux_stencil = param["flux_stencil"]
