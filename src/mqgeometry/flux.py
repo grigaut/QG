@@ -6,6 +6,7 @@ Louis Thiry, 2023
 import torch
 import torch.nn.functional as F
 
+from mqgeometry import reconstruction
 from mqgeometry.reconstruction import linear2, linear3_left, linear5_left, weno3z
 
 
@@ -246,3 +247,74 @@ def div_flux_5pts_mask(
         torch.diff(F.pad(q_flux_x, (0, 0, 1, 1)), dim=-2) / dx
         + torch.diff(F.pad(q_flux_y, (1, 1)), dim=-1) / dy
     )
+
+
+def flux_5pts_only(q: torch.Tensor, u: torch.Tensor, dim: int) -> torch.Tensor:
+    """
+    Flux computation for staggerded variables q and u, with solid boundaries.
+    Upwind-biased stencil:
+      - 5 points inside domain only
+
+    Args:
+        q: tracer field to interpolate, torch.Tensor, shape[dim] = n
+        u: transport velocity, torch.Tensor, shape[dim] = n - 5
+        dim: dimension along which computations are done
+
+    Returns:
+        flux: tracer flux computed on u points, torch.Tensor, shape[dim] = n - 5
+        qi: tracer field interpolated on u points, torch.Tensor, shape[dim] = n - 5
+    """
+
+    n = q.shape[dim]
+
+    # 5-points inside domain
+    qmm, qm, q0, qp, qpp = (
+        q.narrow(dim, 0, n - 4),
+        q.narrow(dim, 1, n - 4),
+        q.narrow(dim, 2, n - 4),
+        q.narrow(dim, 3, n - 4),
+        q.narrow(dim, 4, n - 4),
+    )
+    qi_left_in = reconstruction.linear5_left(qmm, qm, q0, qp, qpp)
+    qi_right_in = reconstruction.linear5_left(qpp, qp, q0, qm, qmm)
+
+    # positive and negative parts of velocity
+    u_pos = F.relu(u)
+    u_neg = u - u_pos
+
+    qi_left = qi_left_in.narrow(dim, 0, n - 5)
+    qi_right = qi_right_in.narrow(dim, 1, n - 5)
+
+    # upwind flux computation
+    return u_pos * qi_left + u_neg * qi_right
+
+
+def div_flux_5pts_only(
+    q: torch.Tensor,
+    u: torch.Tensor,
+    v: torch.Tensor,
+    dx: float,
+    dy: float,
+) -> torch.Tensor:
+    """Compute the divergence [uq, vq], using a large q field.
+
+    The large q field allows using 5 pts linear reconstruction evry where in the domain.
+
+    Args:
+        q (torch.Tensor): Tracer field to compute the div flux of.
+                └── (n_ens, nl, nx+6, ny+6)-shaped
+        u (torch.Tensor): Velocity in the zonal direction.
+                └── (n_ens, nl, nx+1, ny)-shaped
+        v (torch.Tensor): Velocity in the meridional direction.
+                └── (n_ens, nl, nx, ny+1)-shaped
+        dx (float): Infinitesimal distance in the x direction.
+        dy (float): Infinitesimal distance in the x direction.
+
+    Returns:
+        torch.Tensor: ∇ · ([u v] q)
+            └── (n_ens, nl, nx, ny)-shaped
+    """
+    q_flux_y = flux_5pts_only(q[..., 3:-3, :], v, dim=-1)
+    q_flux_x = flux_5pts_only(q[..., :, 3:-3], u, dim=-2)
+
+    return torch.diff(q_flux_x, dim=-2) / dx + torch.diff(q_flux_y, dim=-1) / dy

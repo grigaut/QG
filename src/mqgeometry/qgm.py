@@ -1,24 +1,27 @@
-import numpy as np
 import torch
 
-from mqgeometry.fd import grad_perp, interp_TP, laplacian_h
+from mqgeometry.fd import grad_perp, interp_TP, laplacian, laplacian_h
 from mqgeometry.flux import (
     div_flux_3pts,
-    div_flux_5pts,
     div_flux_3pts_mask,
+    div_flux_5pts,
     div_flux_5pts_mask,
+    div_flux_5pts_only,
 )
-from mqgeometry.helmholtz import (
-    compute_laplace_dst,
-    solve_helmholtz_dst,
-    solve_helmholtz_dst_cmm,
-    compute_capacitance_matrices,
-)
+from mqgeometry.interpolation import _Interpolation
 from mqgeometry.masks import Masks
+from mqgeometry.solver.boundary_conditions.base import Boundaries
+from mqgeometry.solver.pv_inversion import (
+    HomogeneousPVInversion,
+    InhomogeneousPVInversion,
+)
+from mqgeometry.stretching_matrix import compute_A
 
 
 class QGFV:
     """Finite volume multi-layer QG solver."""
+
+    with_bc = False
 
     @property
     def time(self) -> torch.Tensor:
@@ -73,39 +76,118 @@ class QGFV:
         # wind forcing
         self.wind_forcing = torch.zeros((1, 1, nx, ny), **self.arr_kwargs)
 
+        # precompile torch functions if torch >= 2.0
+        self._set_flux()
+        self._set_solver()
+
+    def _set_solver(self) -> None:
+        """Set Helmholtz equation solver."""
+        # PV equation solver
+        self._solver_homogeneous = HomogeneousPVInversion(
+            self.A,
+            self.f0,
+            self.dx,
+            self.dy,
+            self.masks,
+        )
+        self._solver_inhomogeneous = InhomogeneousPVInversion(
+            self.A,
+            self.f0,
+            self.dx,
+            self.dy,
+            self.masks,
+        )
+        if self.with_bc:
+            sf_bc = self._sf_bc_interp(self.time.item())
+            self._solver_inhomogeneous.set_boundaries(sf_bc.get_band(0))
+
+    def _set_flux(self) -> None:
+        """Set the fluxes utils."""
+        if self.with_bc:
+            return self._set_flux_inhomogeneous()
+        return self._set_flux_homogeneous()
+
+    def _set_flux_homogeneous(self) -> None:
+        """Set the flux.
+
+        Raises:
+            ValueError: If invalid stencil.
+        """
         # flux computations
         if self.flux_stencil == 5:
             if len(self.masks.psi_irrbound_xids) > 0:
-                div_flux = div_flux_5pts_mask
-                self.div_flux_args = (
-                    self.masks.u_distbound1[..., 1:-1, :],
-                    self.masks.u_distbound2[..., 1:-1, :],
-                    self.masks.u_distbound3plus[..., 1:-1, :],
-                    self.masks.v_distbound1[..., 1:-1],
-                    self.masks.v_distbound2[..., 1:-1],
-                    self.masks.v_distbound3plus[..., 1:-1],
-                )
+
+                def div_flux(
+                    q: torch.Tensor,
+                    u: torch.Tensor,
+                    v: torch.Tensor,
+                ) -> torch.Tensor:
+                    return div_flux_5pts_mask(
+                        q,
+                        u,
+                        v,
+                        self.dx,
+                        self.dy,
+                        self.masks.u_distbound1[..., 1:-1, :],
+                        self.masks.u_distbound2[..., 1:-1, :],
+                        self.masks.u_distbound3plus[..., 1:-1, :],
+                        self.masks.v_distbound1[..., 1:-1],
+                        self.masks.v_distbound2[..., 1:-1],
+                        self.masks.v_distbound3plus[..., 1:-1],
+                    )
             else:
-                div_flux = div_flux_5pts
-                self.div_flux_args = ()
+
+                def div_flux(
+                    q: torch.Tensor,
+                    u: torch.Tensor,
+                    v: torch.Tensor,
+                ) -> torch.Tensor:
+                    return div_flux_5pts(
+                        q,
+                        u,
+                        v,
+                        self.dx,
+                        self.dy,
+                    )
         elif self.flux_stencil == 3:
             if len(self.masks.psi_irrbound_xids) > 0:
-                div_flux = div_flux_3pts_mask
-                self.div_flux_args = (
-                    self.masks.u_distbound1[..., 1:-1, :],
-                    self.masks.u_distbound2plus[..., 1:-1, :],
-                    self.masks.v_distbound1[..., 1:-1],
-                    self.masks.v_distbound2plus[..., 1:-1],
-                )
-            else:
-                div_flux = div_flux_3pts
-                self.div_flux_args = ()
 
-        # precompile torch functions if torch >= 2.0
+                def div_flux(
+                    q: torch.Tensor,
+                    u: torch.Tensor,
+                    v: torch.Tensor,
+                ) -> torch.Tensor:
+                    return div_flux_3pts_mask(
+                        q,
+                        u,
+                        v,
+                        self.dx,
+                        self.dy,
+                        self.masks.u_distbound1[..., 1:-1, :],
+                        self.masks.u_distbound2plus[..., 1:-1, :],
+                        self.masks.v_distbound1[..., 1:-1],
+                        self.masks.v_distbound2plus[..., 1:-1],
+                    )
+            else:
+
+                def div_flux(
+                    q: torch.Tensor,
+                    u: torch.Tensor,
+                    v: torch.Tensor,
+                ) -> torch.Tensor:
+                    return div_flux_3pts(
+                        q,
+                        u,
+                        v,
+                        self.dx,
+                        self.dy,
+                    )
+
         comp = torch.__version__[0] == "2"
         self.grad_perp = torch.compile(grad_perp) if comp else grad_perp
         self.interp_TP = torch.compile(interp_TP) if comp else interp_TP
         self.laplacian_h = torch.compile(laplacian_h) if comp else laplacian_h
+        self.lap = torch.compile(laplacian) if comp else laplacian
         self.div_flux = torch.compile(div_flux) if comp else div_flux
         if not comp:
             print(
@@ -113,73 +195,98 @@ class QGFV:
                 f"{torch.__version__}, the solver will be slower! "
             )
 
+    def _set_flux_inhomogeneous(self) -> None:
+        """Set the flux.
+
+        Raises:
+            ValueError: If invalid stencil.
+        """
+        if self.flux_stencil == 5:
+            if len(self.masks.psi_irrbound_xids) > 0:
+                msg = (
+                    "Inhomogeneous pv reconstruction not "
+                    "implemented for non-regular geometry."
+                )
+                raise NotImplementedError(msg)
+
+            def div_flux(
+                q: torch.Tensor, u: torch.Tensor, v: torch.Tensor
+            ) -> torch.Tensor:
+                return div_flux_5pts_only(
+                    q,
+                    u,
+                    v,
+                    self.dx,
+                    self.dy,
+                )
+        elif self.flux_stencil == 3:
+            msg = "Inhomogeneous pv reconstruction not implemented for 3 pts stencil."
+            raise NotImplementedError(msg)
+        else:
+            msg = f"Invalid stencil value: {self.flux_stencil}"
+            raise ValueError(msg)
+        comp = torch.__version__[0] == "2"
+        self.grad_perp = torch.compile(grad_perp) if comp else grad_perp
+        self.interp_TP = torch.compile(interp_TP) if comp else interp_TP
+        self.laplacian_h = torch.compile(laplacian_h) if comp else laplacian_h
+        self.div_flux = torch.compile(div_flux) if comp else div_flux
+
+    def _with_boundaries(self) -> None:
+        """Switch to an inhomogeneous solver."""
+        if self.with_bc:
+            return
+        self.with_bc = True
+        self._set_flux()
+
+    def _set_boundaries(self, time: float) -> None:
+        """Set the boundaries to match given time.
+
+        Args:
+            time (float): Time.
+        """
+        sf_bc = self._sf_bc_interp(time)
+
+        self._solver_inhomogeneous.set_boundaries(sf_bc.get_band(0))
+
+        pv_bc = self._pv_bc_interp(time)
+        if pv_bc.width != 3:  # noqa: PLR2004
+            msg = "For wide boundary, pv_bc must be 3 points wide."
+            raise ValueError(msg)
+        self.pv_bc = pv_bc
+
+    def set_boundary_maps(
+        self,
+        sf_bc_interp: _Interpolation[Boundaries],
+        pv_bc_interp: _Interpolation[Boundaries],
+    ) -> None:
+        """Set the boundary maps.
+
+        Args:
+            sf_bc_interp (LinearInterpolation[Boundaries]): Boundary map
+                for stream function at locations
+                (imin,imax+1,jmin,jmax+1).
+            pv_bc_interp (LinearInterpolation[Boundaries]): Boundary map
+                for potential vorticity at locations
+                (imin,imax,jmin,jmax).
+        """
+        self._with_boundaries()
+        self._sf_bc_interp = sf_bc_interp
+        self._pv_bc_interp = pv_bc_interp
+        self._set_boundaries(self.time.item())
+
     def compute_auxillary_matrices(self):
         # A operator
-        H, g_prime = self.H.squeeze(), self.g_prime.squeeze()
-        self.A = torch.zeros((self.nl, self.nl), **self.arr_kwargs)
-        if self.nl == 1:
-            self.A[0, 0] = 1.0 / (H * g_prime)
-        else:
-            self.A[0, 0] = 1.0 / (H[0] * g_prime[0]) + 1.0 / (H[0] * g_prime[1])
-            self.A[0, 1] = -1.0 / (H[0] * g_prime[1])
-            for i in range(1, self.nl - 1):
-                self.A[i, i - 1] = -1.0 / (H[i] * g_prime[i])
-                self.A[i, i] = 1.0 / H[i] * (1 / g_prime[i + 1] + 1 / g_prime[i])
-                self.A[i, i + 1] = -1.0 / (H[i] * g_prime[i + 1])
-            self.A[-1, -1] = 1.0 / (H[self.nl - 1] * g_prime[self.nl - 1])
-            self.A[-1, -2] = -1.0 / (H[self.nl - 1] * g_prime[self.nl - 1])
-
-        # layer-to-mode and mode-to-layer matrices
-        ev_A, P = torch.linalg.eig(self.A)
-        self.lambda_sq = self.f0**2 * ev_A.real.reshape((1, self.nl, 1, 1))
-        self.Cl2m = torch.linalg.inv(P.real)
-        self.Cm2l = P.real
-        self.rossby_radii = self.lambda_sq.squeeze().pow(-0.5)
-        with np.printoptions(precision=1):
-            print(f"Rossby rad.: {self.rossby_radii.cpu().numpy() / 1e3} km")
-
-        # For Helmholtz equations
-        nx, ny, nl = self.nx, self.ny, self.nl
-        laplace_dst = (
-            compute_laplace_dst(nx, ny, self.dx, self.dy, self.arr_kwargs)
-            .unsqueeze(0)
-            .unsqueeze(0)
-        )
-        self.helmholtz_dst = laplace_dst - self.lambda_sq
-
-        # homogeneous Helmholtz solutions
-        cst = torch.ones((1, nl, nx + 1, ny + 1), **self.arr_kwargs)
-        if len(self.masks.psi_irrbound_xids) > 0:
-            self.cap_matrices = compute_capacitance_matrices(
-                self.helmholtz_dst,
-                self.masks.psi_irrbound_xids,
-                self.masks.psi_irrbound_yids,
-            )
-            sol = solve_helmholtz_dst_cmm(
-                (cst * self.masks.psi)[..., 1:-1, 1:-1],
-                self.helmholtz_dst,
-                self.cap_matrices,
-                self.masks.psi_irrbound_xids,
-                self.masks.psi_irrbound_yids,
-                self.masks.psi,
-            )
-        else:
-            self.cap_matrices = None
-            sol = solve_helmholtz_dst(cst[..., 1:-1, 1:-1], self.helmholtz_dst)
-
-        self.homsol = cst + sol * self.lambda_sq
-        self.homsol_mean = (interp_TP(self.homsol) * self.masks.q).mean(
-            (-1, -2), keepdim=True
-        )
-        self.helmholtz_dst = self.helmholtz_dst.type(torch.float32)
+        H = self.H.squeeze().reshape((-1,))
+        g_prime = self.g_prime.squeeze().reshape((-1,))
+        self.A = compute_A(H, g_prime, **self.arr_kwargs)
 
     def set_psiq(self, psi: torch.Tensor, q: torch.Tensor) -> None:
         """Set the values of ѱ and q."""
-        if psi.shape != (s := (self.n_ens, self.nl, self.nx + 1, self.ny + 1)):
-            msg = f"ѱ should be {s}-shaped."
+        if psi.shape != self.psi_shape:
+            msg = f"ѱ should be {self.psi_shape}-shaped."
             raise ValueError(msg)
-        if q.shape != (s := (self.n_ens, self.nl, self.nx, self.ny)):
-            msg = f"q should be {s}-shaped."
+        if q.shape != self.q_shape:
+            msg = f"q should be {self.q_shape}-shaped."
             raise ValueError(msg)
         self.psi = psi
         self.q = q
@@ -196,37 +303,12 @@ class QGFV:
             + self.beta * (self.y - self.y0)
         )
 
-    def compute_psi_from_q(self):
-        """PV inversion."""
-        elliptic_rhs = self.interp_TP(self.q - self.beta * (self.y - self.y0))
-        helmholtz_rhs = torch.einsum("lm,...mxy->...lxy", self.Cl2m, elliptic_rhs)
-        if self.cap_matrices is not None:
-            psi_modes = solve_helmholtz_dst_cmm(
-                helmholtz_rhs * self.masks.psi[..., 1:-1, 1:-1],
-                self.helmholtz_dst,
-                self.cap_matrices,
-                self.masks.psi_irrbound_xids,
-                self.masks.psi_irrbound_yids,
-                self.masks.psi,
-            )
-        else:
-            psi_modes = solve_helmholtz_dst(helmholtz_rhs, self.helmholtz_dst)
-
-        # Add homogeneous solutions to ensure mass conservation
-        alpha = (
-            -self.interp_TP(psi_modes).mean((-1, -2), keepdim=True) / self.homsol_mean
-        )
-        psi_modes += alpha * self.homsol
-        self.psi = torch.einsum("lm,...mxy->...lxy", self.Cm2l, psi_modes)
-
     def set_wind_forcing(self, curl_tau):
         self.wind_forcing = curl_tau / self.H[0]
 
-    def advection_rhs(self):
+    def advection_rhs_no_bc(self) -> torch.Tensor:
         u, v = self.grad_perp(self.psi, self.dx, self.dy)
-        div_flux = self.div_flux(
-            self.q, u[..., 1:-1, :], v[..., 1:-1], self.dx, self.dy, *self.div_flux_args
-        )
+        div_flux = self.div_flux(self.q, u[..., 1:-1, :], v[..., 1:-1])
 
         # wind forcing + bottom drag
         omega = self.interp_TP(
@@ -239,51 +321,121 @@ class QGFV:
             fcg_drag = torch.cat([self.wind_forcing, bottom_drag], dim=-3)
         else:
             fcg_drag = torch.cat(
-                [self.wind_forcing, self.zeros_inside, bottom_drag], dim=-3
+                [
+                    self.wind_forcing,
+                    self.zeros_inside,
+                    bottom_drag,
+                ],
+                dim=-3,
             )
 
         return (-div_flux + fcg_drag) * self.masks.q
 
-    def compute_time_derivatives(self):
-        dq = self.advection_rhs()
+    def compute_time_derivatives_no_bc(self) -> tuple[torch.Tensor, torch.Tensor]:
+        dq = self.advection_rhs_no_bc()
 
         # Solve Helmholtz equation
         dq_i = self.interp_TP(dq)
-        helmholtz_rhs = torch.einsum("lm,...mxy->...lxy", self.Cl2m, dq_i)
-        if self.cap_matrices is not None:
-            dpsi_modes = solve_helmholtz_dst_cmm(
-                helmholtz_rhs * self.masks.psi[..., 1:-1, 1:-1],
-                self.helmholtz_dst,
-                self.cap_matrices,
-                self.masks.psi_irrbound_xids,
-                self.masks.psi_irrbound_yids,
-                self.masks.psi,
-            )
-        else:
-            dpsi_modes = solve_helmholtz_dst(helmholtz_rhs, self.helmholtz_dst)
-        # Add homogeneous solutions to ensure mass conservation
-        alpha = (
-            -self.interp_TP(dpsi_modes).mean((-1, -2), keepdim=True) / self.homsol_mean
+        dpsi = self._solver_homogeneous.compute_stream_function(
+            dq_i, ensure_mass_conservation=True
         )
-        dpsi_modes += alpha * self.homsol
-        dpsi = torch.einsum("lm,...mxy->...lxy", self.Cm2l, dpsi_modes)
 
         return dpsi, dq
 
-    def step(self):
+    def advection_rhs_with_bc(self) -> tuple[torch.Tensor, torch.Tensor]:
+        u, v = self.grad_perp(self.psi, self.dx, self.dy)
+        q_with_bc = self.pv_bc.expand(self.q)
+
+        div_flux = self.div_flux(q_with_bc, u, v)
+
+        # wind forcing
+        if self.with_bc and self.bottom_drag_coef != 0:
+            print("WARNING: non-zero bottom drag coef with BC.")
+        omega = self.interp_TP(
+            self.laplacian_h(self.psi, self.dx, self.dy) * self.masks.psi
+        )
+        bottom_drag = -self.bottom_drag_coef * omega[..., [-1], :, :]
+
+        if self.nl == 1:
+            fcg_drag = self.wind_forcing + bottom_drag
+        elif self.nl == 2:
+            fcg_drag = torch.cat([self.wind_forcing, bottom_drag], dim=-3)
+        else:
+            fcg_drag = torch.cat(
+                [
+                    self.wind_forcing,
+                    self.zeros_inside,
+                    bottom_drag,
+                ],
+                dim=-3,
+            )
+
+        return (-div_flux + fcg_drag) * self.masks.q
+
+    def compute_time_derivatives_with_bc(self) -> tuple[torch.Tensor, torch.Tensor]:
+        dq = self.advection_rhs_with_bc()
+
+        dq_i = self.interp_TP(dq)
+
+        # Solve Helmholtz equation
+        dpsi = self._solver_homogeneous.compute_stream_function(
+            dq_i, ensure_mass_conservation=False
+        )
+
+        return dpsi, dq
+
+    def step_no_bc(self) -> None:
         """Time itegration with SSP-RK3 scheme."""
-        dpsi_0, dq_0 = self.compute_time_derivatives()
+
+        dpsi_0, dq_0 = self.compute_time_derivatives_no_bc()
         self.q += self.dt * dq_0
         self.psi += self.dt * dpsi_0
 
-        dpsi_1, dq_1 = self.compute_time_derivatives()
+        dpsi_1, dq_1 = self.compute_time_derivatives_no_bc()
         self.q += (self.dt / 4) * (dq_1 - 3 * dq_0)
         self.psi += (self.dt / 4) * (dpsi_1 - 3 * dpsi_0)
 
-        dpsi_2, dq_2 = self.compute_time_derivatives()
+        dpsi_2, dq_2 = self.compute_time_derivatives_no_bc()
         self.q += (self.dt / 12) * (8 * dq_2 - dq_1 - dq_0)
         self.psi += (self.dt / 12) * (8 * dpsi_2 - dpsi_1 - dpsi_0)
         self.n_steps += 1
+
+    def step_with_bc(self) -> None:
+        psi_bc = self._solver_inhomogeneous.psiq_bc[0]
+
+        dpsi_0, dq_0 = self.compute_time_derivatives_with_bc()
+        self.q += self.dt * dq_0
+
+        self.psi -= psi_bc
+        coef = 1
+        self._set_boundaries(self.time.item() + coef * self.dt)
+        psi_bc = self._solver_inhomogeneous.psiq_bc[0]
+        self.psi += self.dt * dpsi_0 + psi_bc
+
+        dpsi_1, dq_1 = self.compute_time_derivatives_with_bc()
+        self.q += (self.dt / 4) * (dq_1 - 3 * dq_0)
+
+        self.psi -= psi_bc
+        coef = 1 / 2
+        self._set_boundaries(self.time.item() + coef * self.dt)
+        psi_bc = self._solver_inhomogeneous.psiq_bc[0]
+        self.psi += (self.dt / 4) * (dpsi_1 - 3 * dpsi_0) + psi_bc
+
+        dpsi_2, dq_2 = self.compute_time_derivatives_with_bc()
+        self.q += (self.dt / 12) * (8 * dq_2 - dq_1 - dq_0)
+
+        self.psi -= psi_bc
+        coef = 1
+        self._set_boundaries(self.time.item() + coef * self.dt)
+        psi_bc = self._solver_inhomogeneous.psiq_bc[0]
+        self.psi += (self.dt / 12) * (8 * dpsi_2 - dpsi_1 - dpsi_0) + psi_bc
+
+        self.n_steps += 1
+
+    def step(self) -> None:
+        if self.with_bc:
+            return self.step_with_bc()
+        return self.step_no_bc()
 
     def reset_time(self) -> None:
         print("Model time set to 0.")
