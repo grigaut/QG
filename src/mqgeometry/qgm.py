@@ -27,6 +27,7 @@ class QGFV:
 
     def __init__(self, param):
         # physical params
+        self.reset_time()
         self.Lx = param["Lx"]
         self.Ly = param["Ly"]
         self.nl = param["nl"]
@@ -109,7 +110,6 @@ class QGFV:
                 "Need torch >= 2.0 to use torch.compile, current version "
                 f"{torch.__version__}, the solver will be slower! "
             )
-        self.reset_time()
 
     def compute_auxillary_matrices(self):
         # A operator
@@ -284,4 +284,5 @@ class QGFV:
         self.n_steps += 1
 
     def reset_time(self) -> None:
+        print("Model time set to 0.")
         self.n_steps = 0
