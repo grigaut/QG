@@ -350,6 +350,8 @@ class QGFV:
         div_flux = self.div_flux(q_with_bc, u, v)
 
         # wind forcing
+        if self.with_bc and self.bottom_drag_coef != 0:
+            print("WARNING: non-zero bottom drag coef with BC.")
         omega = self.interp_TP(
             self.laplacian_h(self.psi, self.dx, self.dy) * self.masks.psi
         )
