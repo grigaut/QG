@@ -20,6 +20,11 @@ from mqgeometry.masks import Masks
 class QGFV:
     """Finite volume multi-layer QG solver."""
 
+    @property
+    def time(self) -> torch.Tensor:
+        """Simulated time."""
+        return torch.tensor(self.n_steps * self.dt, **self.arr_kwargs)
+
     def __init__(self, param):
         # physical params
         self.Lx = param["Lx"]
@@ -104,6 +109,7 @@ class QGFV:
                 "Need torch >= 2.0 to use torch.compile, current version "
                 f"{torch.__version__}, the solver will be slower! "
             )
+        self.reset_time()
 
     def compute_auxillary_matrices(self):
         # A operator
@@ -275,3 +281,7 @@ class QGFV:
         dpsi_2, dq_2 = self.compute_time_derivatives()
         self.q += (self.dt / 12) * (8 * dq_2 - dq_1 - dq_0)
         self.psi += (self.dt / 12) * (8 * dpsi_2 - dpsi_1 - dpsi_0)
+        self.n_steps += 1
+
+    def reset_time(self) -> None:
+        self.n_steps = 0
