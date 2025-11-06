@@ -91,16 +91,6 @@ class QGFV:
             self.dy,
             self.masks,
         )
-        self._solver_inhomogeneous = InhomogeneousPVInversion(
-            self.A,
-            self.f0,
-            self.dx,
-            self.dy,
-            self.masks,
-        )
-        if self.with_bc:
-            sf_bc = self._sf_bc_interp(self.time.item())
-            self._solver_inhomogeneous.set_boundaries(sf_bc.get_band(0))
 
     def _set_flux(self) -> None:
         """Set the fluxes utils."""
@@ -238,6 +228,13 @@ class QGFV:
             return
         self.with_bc = True
         self._set_flux()
+        self._solver_inhomogeneous = InhomogeneousPVInversion(
+            self.A,
+            self.f0,
+            self.dx,
+            self.dy,
+            self.masks,
+        )
 
     def _set_boundaries(self, time: float) -> None:
         """Set the boundaries to match given time.

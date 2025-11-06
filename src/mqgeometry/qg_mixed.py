@@ -113,6 +113,12 @@ class QGMixed(QGFV):
             self.dy,
             self.masks,
         )
+
+    def _with_boundaries(self) -> None:
+        if self.with_bc:
+            return
+        self.with_bc = True
+        self._set_flux()
         self._solver_inhomogeneous = InhomogeneousPVInversionCollinear(
             self.A,
             self.alpha,
@@ -121,9 +127,6 @@ class QGMixed(QGFV):
             self.dy,
             self.masks,
         )
-        if self.with_bc:
-            sf_bc = self._sf_bc_interp(self.time.item())
-            self._solver_inhomogeneous.set_boundaries(sf_bc.get_band(0))
 
     def compute_auxillary_matrices(self):
         # A operator
