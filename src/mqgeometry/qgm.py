@@ -48,7 +48,7 @@ class QGFV:
         self.arr_kwargs = {"dtype": torch.float64, "device": self.device}
 
         # grid params
-        self.n_ens: int = param.setdefault("n_ens", 1)
+        self.n_ens: int = param.get("n_ens", 1)
         self.nl: int = self.H.shape[0]
         self.nx: int = xv.shape[0] - 1
         self.ny: int = yv.shape[0] - 1
@@ -57,7 +57,7 @@ class QGFV:
         self.q_shape = (self.n_ens, self.nl, self.nx, self.ny)
         self.dx = self.Lx / nx
         self.dy = self.Ly / ny
-        self.flux_stencil: int = param.setdefault("flux_stencil", 5)
+        self.flux_stencil: int = param.get("flux_stencil", 5)
         self.y = (yv[:-1] + yv[1:])[None, :] / 2
         self.y0 = 0.5 * (yv[0] + yv[-1])
 

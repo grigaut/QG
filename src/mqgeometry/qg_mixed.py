@@ -1,5 +1,6 @@
 """Affine + Collinear QG model."""
 
+from typing import Any
 import torch
 from mqgeometry.fd import interp_TP, laplacian
 from mqgeometry.masks import Masks
@@ -51,7 +52,7 @@ class QGMixed(QGFV):
     def dpsi2(self, dpsi2: torch.Tensor) -> None:
         self._dpsi2 = dpsi2
 
-    def __init__(self, param) -> None:
+    def __init__(self, param: dict[str, Any]) -> None:
         self.reset_time()
         xv: torch.Tensor = param["xv"]
         yv: torch.Tensor = param["yv"]
@@ -69,7 +70,7 @@ class QGMixed(QGFV):
         self.arr_kwargs = {"dtype": torch.float64, "device": self.device}
 
         # grid params
-        self.n_ens: int = param.setdefault("n_ens", 1)
+        self.n_ens: int = param.get("n_ens", 1)
         self.nl: int = self.H.shape[0]
         self.nx: int = xv.shape[0] - 1
         self.ny: int = yv.shape[0] - 1
@@ -78,7 +79,7 @@ class QGMixed(QGFV):
         self.q_shape = (self.n_ens, self.nl - 1, self.nx, self.ny)
         self.dx = self.Lx / nx
         self.dy = self.Ly / ny
-        self.flux_stencil: int = param.setdefault("flux_stencil", 5)
+        self.flux_stencil: int = param.get("flux_stencil", 5)
         self.y = (yv[:-1] + yv[1:])[None, :] / 2
         self.y0 = 0.5 * (yv[0] + yv[-1])
 
