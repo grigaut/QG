@@ -16,6 +16,7 @@ class ScriptArgs:
     """Script arguments."""
 
     config: Path
+    verbose: int
 
     @classmethod
     def from_cli(cls, *, config_default: Path) -> Self:
@@ -28,6 +29,7 @@ class ScriptArgs:
         parser = argparse.ArgumentParser(
             description="Retrieve script arguments.",
         )
+        cls._add_verbose(parser)
         cls._add_config(parser, config_default)
         return cls(**vars(parser.parse_args()))
 
@@ -44,4 +46,19 @@ class ScriptArgs:
             type=pathlib.Path,
             default=config_default,
             help="Configuration File Path (path from root level)",
+        )
+
+    @classmethod
+    def _add_verbose(cls, parser: argparse.ArgumentParser) -> None:
+        """Add verbose to parser.
+
+        Args:
+            parser (argparse.ArgumentParser): Arguments parser.
+        """
+        parser.add_argument(
+            "-v",
+            "--verbose",
+            action="count",
+            default=1,
+            help="Verbose level.",
         )

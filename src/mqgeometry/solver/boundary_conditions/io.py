@@ -6,8 +6,8 @@ from pathlib import Path
 
 import torch
 
-from qgsw.solver.boundary_conditions.base import Boundaries, TimedBoundaries
-from qgsw.specs import defaults
+from mqgeometry.solver.boundary_conditions.base import Boundaries, TimedBoundaries
+from mqgeometry.specs import defaults
 
 
 class BoundaryConditionSaver:

@@ -1,6 +1,7 @@
 from typing import Any
 import torch
 
+from mqgeometry import logging
 from mqgeometry.fd import grad_perp, interp_TP, laplacian, laplacian_h
 from mqgeometry.flux import (
     div_flux_3pts,
@@ -17,6 +18,8 @@ from mqgeometry.solver.pv_inversion import (
     InhomogeneousPVInversion,
 )
 from mqgeometry.stretching_matrix import compute_A
+
+logger = logging.getLogger(__name__)
 
 
 class QGFV:
@@ -199,7 +202,7 @@ class QGFV:
             )
         )
         if not comp:
-            print(
+            logger.info(
                 "Need torch >= 2.0 to use torch.compile, current version "
                 f"{torch.__version__}, using torch.jit.trace."
             )
@@ -257,6 +260,11 @@ class QGFV:
                 ),
             )
         )
+        if not comp:
+            logger.info(
+                "Need torch >= 2.0 to use torch.compile, current version "
+                f"{torch.__version__}, using torch.jit.trace."
+            )
 
     def _with_boundaries(self) -> None:
         """Switch to an inhomogeneous solver."""
@@ -470,5 +478,5 @@ class QGFV:
         return self.step_no_bc()
 
     def reset_time(self) -> None:
-        print("Model time set to 0.")
+        logger.info("Model time set to 0.")
         self.n_steps = 0

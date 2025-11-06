@@ -32,3 +32,4 @@ dependencies:
     - python-dotenv==1.0.1
     - toml
     - typing_extensions
+    - rich
