@@ -29,13 +29,10 @@ os.makedirs(output_dir) if not os.path.isdir(output_dir) else None
 
 Lx = 5120.0e3
 Ly = 5120.0e3
-dx = Lx / nx
-dy = Ly / ny
 
 # vertex grid
 xv = torch.linspace(0, Lx, nx + 1, dtype=torch.float64, device=device)
 yv = torch.linspace(0, Ly, ny + 1, dtype=torch.float64, device=device)
-x, y = torch.meshgrid(xv, yv, indexing="ij")
 
 # layer thickness
 H = torch.zeros(nl, 1, 1, dtype=dtype, device=device)
@@ -65,13 +62,10 @@ bottom_drag_coef = 0
 mask = torch.ones(nx, ny)
 
 param = {
-    "nx": nx,
-    "ny": ny,
-    "nl": nl,
+    "xv": xv,
+    "yv": yv,
     "n_ens": n_ens,
     "mask": mask,
-    "Lx": Lx,
-    "Ly": Ly,
     "flux_stencil": 5,
     "H": H,
     "g_prime": g_prime,
@@ -85,7 +79,7 @@ param = {
 
 qg = QGMixed(param)
 qg.set_wind_forcing(curl_tau)
-qg.alpha = torch.ones_like(qg.psi)
+# qg.alpha = torch.ones_like(qg.psi)
 
 # time params
 dt = param["dt"]

@@ -51,36 +51,36 @@ class QGMixed(QGFV):
     def dpsi2(self, dpsi2: torch.Tensor) -> None:
         self._dpsi2 = dpsi2
 
-    def __init__(self, param):
+    def __init__(self, param) -> None:
         self.reset_time()
-        self.Lx = param["Lx"]
-        self.Ly = param["Ly"]
-        self.nl = param["nl"]
-        self.H = param["H"]
-        self.g_prime = param["g_prime"]
-        self.f0 = param["f0"]
-        self.beta = param["beta"]
-        self.bottom_drag_coef = param["bottom_drag_coef"]
-        self.dt = param["dt"]
+        xv: torch.Tensor = param["xv"]
+        yv: torch.Tensor = param["yv"]
+        self.Lx = xv[-1] - xv[0]
+        self.Ly = yv[-1] - yv[0]
+        self.H: torch.Tensor = param["H"]
+        self.g_prime: torch.Tensor = param["g_prime"]
+        self.f0: float = param["f0"]
+        self.beta: float = param["beta"]
+        self.bottom_drag_coef: float = param["bottom_drag_coef"]
+        self.dt: float = param["dt"]
 
         # ensemble/device/dtype
-        self.n_ens = param["n_ens"]
         self.device = param["device"]
         self.arr_kwargs = {"dtype": torch.float64, "device": self.device}
 
         # grid params
-        self.ny = param["ny"]
-        self.nx = param["nx"]
+        self.n_ens: int = param.setdefault("n_ens", 1)
+        self.nl: int = self.H.shape[0]
+        self.nx: int = xv.shape[0] - 1
+        self.ny: int = yv.shape[0] - 1
         n_ens, nl, nx, ny = self.n_ens, self.nl, self.nx, self.ny
         self.psi_shape = (self.n_ens, self.nl - 1, self.nx + 1, self.ny + 1)
         self.q_shape = (self.n_ens, self.nl - 1, self.nx, self.ny)
-        self.dx = torch.tensor(self.Lx / nx, **self.arr_kwargs)
-        self.dy = torch.tensor(self.Ly / ny, **self.arr_kwargs)
-        self.flux_stencil = param["flux_stencil"]
-        self.y = torch.linspace(
-            0.5 * self.dy, self.Ly - 0.5 * self.dy, ny, **self.arr_kwargs
-        ).unsqueeze(0)
-        self.y0 = 0.5 * self.Ly
+        self.dx = self.Lx / nx
+        self.dy = self.Ly / ny
+        self.flux_stencil: int = param.setdefault("flux_stencil", 5)
+        self.y = (yv[:-1] + yv[1:])[None, :] / 2
+        self.y0 = 0.5 * (yv[0] + yv[-1])
 
         mask = param["mask"] if "mask" in param.keys() else torch.ones(nx, ny)
         self.masks = Masks(mask.type(torch.float64).to(self.device))
