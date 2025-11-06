@@ -177,5 +177,20 @@ def days2text(time: float) -> str:
     Returns:
         str: Text.
     """
+    if time < 365:
+        s = "s" if time >= 2 else ""  # noqa: PLR2004
+        return f"{time:.1f} day{s}"
+    return years2text(time / 365)
+
+
+def years2text(time: float) -> str:
+    """Convert time in years to text.
+
+    Args:
+        time (float): Time in years.
+
+    Returns:
+        str: Text.
+    """
     s = "s" if time >= 2 else ""  # noqa: PLR2004
-    return f"{time:.1f} day{s}"
+    return f"{time:.1f} year{s}"
