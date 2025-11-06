@@ -75,6 +75,8 @@ def load_simulation_config(file: str | Path) -> dict[str, Any]:
         dict[str, Any]: Configuration.
     """
     config_data = toml.load(Path(file))
+    startup = config_data.get("startup_file", None)
     return {
         "duration": config_data.get("duration"),
+        "startup_file": startup,
     }

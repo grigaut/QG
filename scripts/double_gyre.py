@@ -56,6 +56,13 @@ curl_tau = curl_tau.unsqueeze(0).repeat(n_ens, 1, 1, 1)
 qg = QGFV(config)
 qg.set_wind_forcing(curl_tau)
 
+if (f := sim_config["startup_file"]) is not None:
+    startup = torch.load(f)
+    qg.set_psiq(
+        startup["psi"].to(**specs),
+        startup["q"].to(**specs),
+    )
+
 saver = SaveState(output_config["folder"])
 saver.register_tensors(psi=qg.psi, q=qg.q)
 saver.save("ic.pt")
