@@ -175,15 +175,33 @@ class QGFV:
                     )
 
         comp = torch.__version__[0] == "2"
-        self.grad_perp = torch.compile(grad_perp) if comp else grad_perp
+        self.grad_perp = (
+            torch.compile(grad_perp)
+            if comp
+            else torch.jit(grad_perp(self.psi), (self.dx, self.dy))
+        )
         self.interp_TP = torch.compile(interp_TP) if comp else interp_TP
-        self.laplacian_h = torch.compile(laplacian_h) if comp else laplacian_h
-        self.lap = torch.compile(laplacian) if comp else laplacian
-        self.div_flux = torch.compile(div_flux) if comp else div_flux
+        self.laplacian_h = (
+            torch.compile(laplacian_h)
+            if comp
+            else torch.jit.trace(laplacian_h, (self.psi, self.dx, self.dy))
+        )
+        self.div_flux = (
+            torch.compile(div_flux)
+            if comp
+            else torch.jit.trace(
+                div_flux,
+                (
+                    self.q,
+                    self.grad_perp(self.psi, self.dx, self.dy)[0][..., 1:-1, :],
+                    self.grad_perp(self.psi, self.dx, self.dy)[1][..., 1:-1],
+                ),
+            )
+        )
         if not comp:
             print(
                 "Need torch >= 2.0 to use torch.compile, current version "
-                f"{torch.__version__}, the solver will be slower! "
+                f"{torch.__version__}, using torch.jit.trace."
             )
 
     def _set_flux_inhomogeneous(self) -> None:
@@ -217,10 +235,28 @@ class QGFV:
             msg = f"Invalid stencil value: {self.flux_stencil}"
             raise ValueError(msg)
         comp = torch.__version__[0] == "2"
-        self.grad_perp = torch.compile(grad_perp) if comp else grad_perp
+        self.grad_perp = (
+            torch.compile(grad_perp)
+            if comp
+            else torch.jit(grad_perp(self.psi), (self.dx, self.dy))
+        )
         self.interp_TP = torch.compile(interp_TP) if comp else interp_TP
-        self.laplacian_h = torch.compile(laplacian_h) if comp else laplacian_h
-        self.div_flux = torch.compile(div_flux) if comp else div_flux
+        self.lap = (
+            torch.compile(laplacian)
+            if comp
+            else torch.jit.trace(laplacian, (self.psi, self.dx, self.dy))
+        )
+        self.div_flux = (
+            torch.compile(div_flux)
+            if comp
+            else torch.jit.trace(
+                div_flux,
+                (
+                    self.pv_bc.expand(self.q),
+                    *self.grad_perp(self.psi, self.dx, self.dy),
+                ),
+            )
+        )
 
     def _with_boundaries(self) -> None:
         """Switch to an inhomogeneous solver."""
