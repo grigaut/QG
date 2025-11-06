@@ -5,6 +5,7 @@ Double-gyre on regular domain.
 from pathlib import Path
 import torch
 
+from mqgeometry import logging
 from mqgeometry.cli import ScriptArgs
 from mqgeometry.config import (
     load_model_config,
@@ -12,13 +13,18 @@ from mqgeometry.config import (
     load_simulation_config,
 )
 from mqgeometry.io import SaveState
+from mqgeometry.logging.utils import box, sec2text
 from mqgeometry.qgm import QGFV
 from mqgeometry.specs import defaults
 
 torch.backends.cudnn.deterministic = True
 
 args = ScriptArgs.from_cli(config_default=Path("configs/double_gyre.toml"))
+logging.setup_root_logger(args.verbose)
+logger = logging.getLogger(__name__)
 specs = defaults.get()
+
+
 config = load_model_config(args.config)
 output_config = load_output_config(args.config)
 sim_config = load_simulation_config(args.config)
@@ -27,6 +33,15 @@ n_ens = config["n_ens"]
 nx = config["xv"].shape[0] - 1
 ny = config["yv"].shape[0] - 1
 dt = config["dt"]
+
+duration = sec2text(sim_config["duration"] * dt)
+msg = (
+    f"Running double gyre simulation on a {nx}x{ny} grid for a duration of {duration}."
+)
+logger.info(box(msg, style="="))
+
+msg = f"Running code using {specs['device']}"
+logger.info(msg)
 
 yv = config["yv"]
 Ly = yv[-1] - yv[0]

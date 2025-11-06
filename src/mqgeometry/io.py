@@ -6,6 +6,10 @@ from pathlib import Path
 import toml
 import torch
 
+from mqgeometry import logging
+
+logger = logging.getLogger(__name__)
+
 
 class SaveState:
     """Class to save model state."""
@@ -46,6 +50,8 @@ class SaveState:
             raise ValueError(msg)
         path = self.folder.joinpath(filename)
         torch.save({k: v.detach().cpu() for k, v in self.tensors.items()}, path)
+        msg = f"Saved tensors to {path}"
+        logger.info(msg)
 
     def copy_config(self, config_path: str | Path) -> None:
         """Save registered tensors.
@@ -58,3 +64,5 @@ class SaveState:
         """
         path = self.folder.joinpath("_config.toml")
         toml.dump(toml.load(Path(config_path)), path.open("w"))
+        msg = f"Saved configuration to {path}"
+        logger.info(msg)
