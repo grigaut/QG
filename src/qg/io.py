@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import toml
 import torch
@@ -9,6 +10,35 @@ import torch
 from qg import logging
 
 logger = logging.getLogger(__name__)
+
+
+def get_storage_path(key: str = "STORAGE") -> Path:
+    """Read .env to find storage path.
+
+    Returns:
+        Path: $STORAGE from .env or $PWD if no STORAGE environment variable.
+    """
+    if key in os.environ:
+        return Path(os.environ[key]).absolute()
+    msg = f"Impossible to read the {key} from environment variables."
+    raise ValueError(msg)
+
+
+def get_absolute_storage_path(path: Path) -> Path:
+    """Make an absolute stroage path.
+
+    Args:
+        path (Path): Path to use to save data.
+
+    Returns:
+        Path: Absolute storage path.
+    """
+    if path.is_absolute():
+        if path.is_relative_to(get_storage_path()):
+            return path
+        msg = f"Path {path} is absolute, use relative path instead."
+        raise ValueError(msg)
+    return get_storage_path().joinpath(path).absolute()
 
 
 class SaveState:
@@ -23,7 +53,8 @@ class SaveState:
         Args:
             output_folder (str | Path): Output folder to save in.
         """
-        self.folder = Path(output_folder)
+        self.folder = get_absolute_storage_path(Path(output_folder))
+        logger.info(f"Output will be saved under {self.folder}")
         if not self.folder.exists():
             self.folder.mkdir()
             gitignore = self.folder.joinpath(".gitignore")
