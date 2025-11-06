@@ -178,7 +178,7 @@ class QGFV:
         self.grad_perp = (
             torch.compile(grad_perp)
             if comp
-            else torch.jit(grad_perp(self.psi), (self.dx, self.dy))
+            else torch.jit.trace(grad_perp, (self.psi, self.dx, self.dy))
         )
         self.interp_TP = torch.compile(interp_TP) if comp else interp_TP
         self.laplacian_h = (
@@ -238,7 +238,7 @@ class QGFV:
         self.grad_perp = (
             torch.compile(grad_perp)
             if comp
-            else torch.jit(grad_perp(self.psi), (self.dx, self.dy))
+            else torch.jit.trace(grad_perp, (self.psi, self.dx, self.dy))
         )
         self.interp_TP = torch.compile(interp_TP) if comp else interp_TP
         self.lap = (
