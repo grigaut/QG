@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import torch
 
-from mqgeometry.specs import DEVICE, TensorSpecs
+from qg.specs import DEVICE, TensorSpecs
 
 
 def get_dtype(dtype: torch.dtype | None = None) -> torch.dtype:

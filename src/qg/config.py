@@ -8,7 +8,7 @@ from typing import Any
 
 import torch
 
-from mqgeometry.specs import defaults
+from qg.specs import defaults
 
 
 def load_model_config(file: str | Path) -> dict[str, Any]:

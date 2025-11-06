@@ -6,8 +6,8 @@ Louis Thiry, 2023
 import torch
 import torch.nn.functional as F
 
-from mqgeometry import reconstruction
-from mqgeometry.reconstruction import linear2, linear3_left, linear5_left, weno3z
+from qg import reconstruction
+from qg.reconstruction import linear2, linear3_left, linear5_left, weno3z
 
 
 def flux_1pts(q, u, dim):

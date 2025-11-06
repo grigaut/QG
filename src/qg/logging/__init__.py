@@ -1,7 +1,7 @@
 """Logging-related tools."""
 
-from mqgeometry.logging._levels import CRITICAL, DEBUG, DETAIL, INFO, WARNING
-from mqgeometry.logging.core import getLogger, setup_root_logger
+from qg.logging._levels import CRITICAL, DEBUG, DETAIL, INFO, WARNING
+from qg.logging.core import getLogger, setup_root_logger
 
 __all__ = [
     "CRITICAL",

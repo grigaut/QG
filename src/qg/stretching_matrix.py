@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import torch
 
-from mqgeometry.specs import defaults
+from qg.specs import defaults
 
 
 def compute_A(  # noqa: N802

@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 import sys
 
-from mqgeometry.logging._levels import DEBUG, DETAIL, INFO, WARNING
-from mqgeometry.logging.log_records import make_log_record
+from qg.logging._levels import DEBUG, DETAIL, INFO, WARNING
+from qg.logging.log_records import make_log_record
 
 try:
     from rich.console import Console
@@ -17,9 +17,9 @@ try:
 except ImportError:
     WITH_RICH = False
 
-from mqgeometry.logging.environments import in_notebook, in_oar
-from mqgeometry.logging.formatters import Formatter, RichFormatter
-from mqgeometry.logging.logger import Logger
+from qg.logging.environments import in_notebook, in_oar
+from qg.logging.formatters import Formatter, RichFormatter
+from qg.logging.logger import Logger
 
 
 def setup_root_logger(verbose_level: int = 1) -> None:

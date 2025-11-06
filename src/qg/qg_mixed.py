@@ -2,12 +2,12 @@
 
 from typing import Any
 import torch
-from mqgeometry.fd import interp_TP, laplacian
-from mqgeometry.masks import Masks
-from mqgeometry.qgm import QGFV
+from qg.fd import interp_TP, laplacian
+from qg.masks import Masks
+from qg.qgm import QGFV
 import torch.nn.functional as F
 
-from mqgeometry.solver.pv_inversion import (
+from qg.solver.pv_inversion import (
     HomogeneousPVInversionCollinear,
     InhomogeneousPVInversionCollinear,
 )

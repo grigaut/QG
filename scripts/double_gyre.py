@@ -5,17 +5,17 @@ Double-gyre on regular domain.
 from pathlib import Path
 import torch
 
-from mqgeometry import logging
-from mqgeometry.cli import ScriptArgs
-from mqgeometry.config import (
+from qg import logging
+from qg.cli import ScriptArgs
+from qg.config import (
     load_model_config,
     load_output_config,
     load_simulation_config,
 )
-from mqgeometry.io import SaveState
-from mqgeometry.logging.utils import box, sec2text
-from mqgeometry.qgm import QGFV
-from mqgeometry.specs import defaults
+from qg.io import SaveState
+from qg.logging.utils import box, sec2text
+from qg.qgm import QGFV
+from qg.specs import defaults
 
 torch.backends.cudnn.deterministic = True
 

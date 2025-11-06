@@ -3,7 +3,7 @@
 import logging
 from typing import ClassVar
 
-from mqgeometry.logging._levels import (
+from qg.logging._levels import (
     CRITICAL,
     DEBUG,
     DETAIL,
@@ -11,7 +11,7 @@ from mqgeometry.logging._levels import (
     INFO,
     WARNING,
 )
-from mqgeometry.logging.log_records import LogRecord
+from qg.logging.log_records import LogRecord
 
 
 class Formatter(logging.Formatter):
