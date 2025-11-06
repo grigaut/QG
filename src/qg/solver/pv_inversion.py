@@ -7,23 +7,23 @@ from typing import TYPE_CHECKING
 
 import torch
 
-from mqgeometry.fd import interp_TP
-from mqgeometry.solver.boundary_conditions.base import Boundaries
-from mqgeometry.solver.boundary_conditions.interpolation import (
+from qg.fd import interp_TP
+from qg.solver.boundary_conditions.base import Boundaries
+from qg.solver.boundary_conditions.interpolation import (
     BilinearExtendedBoundary,
 )
-from mqgeometry.helmholtz import (
+from qg.helmholtz import (
     compute_capacitance_matrices,
     compute_laplace_dst,
     solve_helmholtz_dst,
     solve_helmholtz_dst_cmm,
 )
-from mqgeometry.specs import defaults
+from qg.specs import defaults
 
-from mqgeometry.stretching_matrix import compute_layers_to_mode_decomposition
+from qg.stretching_matrix import compute_layers_to_mode_decomposition
 
 if TYPE_CHECKING:
-    from mqgeometry.masks import Masks
+    from qg.masks import Masks
 
 
 class BasePVInversion(ABC):

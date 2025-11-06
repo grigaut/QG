@@ -1,23 +1,23 @@
 from typing import Any
 import torch
 
-from mqgeometry import logging
-from mqgeometry.fd import grad_perp, interp_TP, laplacian, laplacian_h
-from mqgeometry.flux import (
+from qg import logging
+from qg.fd import grad_perp, interp_TP, laplacian, laplacian_h
+from qg.flux import (
     div_flux_3pts,
     div_flux_3pts_mask,
     div_flux_5pts,
     div_flux_5pts_mask,
     div_flux_5pts_only,
 )
-from mqgeometry.interpolation import _Interpolation
-from mqgeometry.masks import Masks
-from mqgeometry.solver.boundary_conditions.base import Boundaries
-from mqgeometry.solver.pv_inversion import (
+from qg.interpolation import _Interpolation
+from qg.masks import Masks
+from qg.solver.boundary_conditions.base import Boundaries
+from qg.solver.pv_inversion import (
     HomogeneousPVInversion,
     InhomogeneousPVInversion,
 )
-from mqgeometry.stretching_matrix import compute_A
+from qg.stretching_matrix import compute_A
 
 logger = logging.getLogger(__name__)
 

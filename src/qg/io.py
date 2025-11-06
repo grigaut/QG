@@ -6,7 +6,7 @@ from pathlib import Path
 import toml
 import torch
 
-from mqgeometry import logging
+from qg import logging
 
 logger = logging.getLogger(__name__)
 

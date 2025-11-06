@@ -10,12 +10,12 @@ from typing import TYPE_CHECKING
 
 from typing_extensions import ParamSpec
 
-from mqgeometry.logging._levels import DETAIL, INFO
+from qg.logging._levels import DETAIL, INFO
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-    from mqgeometry.logging.log_records import LogRecord
+    from qg.logging.log_records import LogRecord
 
 P = ParamSpec("P")
 

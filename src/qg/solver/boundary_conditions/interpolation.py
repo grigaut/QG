@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from mqgeometry.solver.boundary_conditions.base import Boundaries
-from mqgeometry.specs import defaults
+from qg.solver.boundary_conditions.base import Boundaries
+from qg.specs import defaults
 
 try:
     from typing import Self
@@ -12,8 +12,8 @@ except ImportError:
 
 import torch
 
-from mqgeometry import specs
-from mqgeometry.fd import laplacian1D
+from qg import specs
+from qg.fd import laplacian1D
 
 
 class BilinearExtendedBoundary:

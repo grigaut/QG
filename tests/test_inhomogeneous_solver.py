@@ -3,14 +3,14 @@
 import pytest
 import torch
 
-from mqgeometry.stretching_matrix import compute_A
-from mqgeometry.solver.boundary_conditions.base import Boundaries
-from mqgeometry.fd import interp_TP, laplacian
-from mqgeometry.solver.pv_inversion import (
+from qg.stretching_matrix import compute_A
+from qg.solver.boundary_conditions.base import Boundaries
+from qg.fd import interp_TP, laplacian
+from qg.solver.pv_inversion import (
     InhomogeneousPVInversion,
     InhomogeneousPVInversionCollinear,
 )
-from mqgeometry.specs import defaults
+from qg.specs import defaults
 
 
 @pytest.fixture

@@ -2,7 +2,7 @@
 
 import torch
 
-from mqgeometry.specs._utils import Device, TensorSpecs
+from qg.specs._utils import Device, TensorSpecs
 
 DEVICE = Device.set_automatically()
 
