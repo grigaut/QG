@@ -26,6 +26,7 @@ from qg.qgm import QGFV
 from qg.solver.boundary_conditions.base import Boundaries
 from qg.specs import defaults
 from qg.utils.cropping import crop
+from qg.wind import compute_double_gyre_wind_curl
 
 torch.backends.cudnn.deterministic = True
 torch.set_grad_enabled(False)
@@ -94,10 +95,11 @@ yv = config["yv"]
 Ly = yv[-1] - yv[0]
 
 # forcing
-yc = 0.5 * (yv[1:] + yv[:-1])  # cell centers
-tau0 = config.pop("tau0")
-curl_tau = -tau0 * 2 * torch.pi / Ly * torch.sin(2 * torch.pi * yc / Ly).tile((nx, 1))
-curl_tau = curl_tau.unsqueeze(0).repeat(n_ens, 1, 1, 1)
+yv = config["yv"]
+xv = config["xv"]
+
+# forcing
+curl_tau = compute_double_gyre_wind_curl(config.pop("tau0"), xv, yv, config["n_ens"])
 
 qg_3l = QGFV(config)
 qg_3l.set_wind_forcing(curl_tau)

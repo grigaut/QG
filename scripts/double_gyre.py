@@ -16,6 +16,7 @@ from qg.io import SaveState
 from qg.logging.utils import box, sec2text, step
 from qg.qgm import QGFV
 from qg.specs import defaults
+from qg.wind import compute_double_gyre_wind_curl
 
 torch.backends.cudnn.deterministic = True
 
@@ -45,13 +46,10 @@ msg = f"Running code using {specs['device']}"
 logger.info(msg)
 
 yv = config["yv"]
-Ly = yv[-1] - yv[0]
+xv = config["xv"]
 
 # forcing
-yc = 0.5 * (yv[1:] + yv[:-1])  # cell centers
-tau0 = config.pop("tau0")
-curl_tau = -tau0 * 2 * torch.pi / Ly * torch.sin(2 * torch.pi * yc / Ly).tile((nx, 1))
-curl_tau = curl_tau.unsqueeze(0).repeat(n_ens, 1, 1, 1)
+curl_tau = compute_double_gyre_wind_curl(config.pop("tau0"), xv, yv, config["n_ens"])
 
 qg = QGFV(config)
 qg.set_wind_forcing(curl_tau)
