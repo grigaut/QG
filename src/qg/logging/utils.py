@@ -149,7 +149,7 @@ def min2text(time: float) -> str:
     """
     if time < 60:  # noqa: PLR2004
         s = "s" if time >= 2 else ""  # noqa: PLR2004
-        return f"{time:.1f} minutes{s}"
+        return f"{time:.1f} minute{s}"
     return hours2text(time / 60)
 
 
