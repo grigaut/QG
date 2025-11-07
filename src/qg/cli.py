@@ -59,6 +59,6 @@ class ScriptArgs:
             "-v",
             "--verbose",
             action="count",
-            default=1,
+            default=0,
             help="Verbose level.",
         )

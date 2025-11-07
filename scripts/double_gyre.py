@@ -64,8 +64,7 @@ if (f := sim_config["startup_file"]) is not None:
     )
 
 saver = SaveState(output_config["folder"])
-saver.register_tensors(psi=qg.psi, q=qg.q)
-saver.save("ic.pt")
+saver.save("ic.pt", psi=qg.psi, q=qg.q)
 saver.copy_config(args.config)
 
 # time params
@@ -80,10 +79,10 @@ for n in range(1, n_steps + 1):
     if n % output_config["interval"] == 0:
         msg = f"[{step(n, n_steps)}] | Saving ѱ and q..."
         with logger.section(msg):
-            saver.save(f"step_{n}.pt")
+            saver.save(f"step_{n}.pt", psi=qg.psi, q=qg.q)
     if n % n_year == 0:
         msg = f"[{step(n, n_steps)}] | Simulated time: {sec2text(qg.time.item())}"
         logger.info(msg)
 
 if n % output_config["interval"] != 0:
-    saver.save(f"step_{n}.pt")
+    saver.save(f"step_{n}.pt", psi=qg.psi, q=qg.q)

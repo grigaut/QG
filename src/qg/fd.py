@@ -2,9 +2,11 @@ import torch
 import torch.nn.functional as F
 
 
-def grad_perp(f, dx, dy):
+def grad_perp(
+    f: torch.Tensor, dx: float, dy: float
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Orthogonal gradient"""
-    return (f[..., :-1] - f[..., 1:]) / dy, (f[..., 1:, :] - f[..., :-1, :]) / dx
+    return (-f.diff(dim=-1) / dy, f.diff(dim=-2) / dx)
 
 
 def interp_TP(f):

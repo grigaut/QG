@@ -428,47 +428,47 @@ class QGFV:
         """Time itegration with SSP-RK3 scheme."""
 
         dpsi_0, dq_0 = self.compute_time_derivatives_no_bc()
-        self.q += self.dt * dq_0
-        self.psi += self.dt * dpsi_0
+        self.q = self.q + self.dt * dq_0
+        self.psi = self.psi + self.dt * dpsi_0
 
         dpsi_1, dq_1 = self.compute_time_derivatives_no_bc()
-        self.q += (self.dt / 4) * (dq_1 - 3 * dq_0)
-        self.psi += (self.dt / 4) * (dpsi_1 - 3 * dpsi_0)
+        self.q = self.q + (self.dt / 4) * (dq_1 - 3 * dq_0)
+        self.psi = self.psi + (self.dt / 4) * (dpsi_1 - 3 * dpsi_0)
 
         dpsi_2, dq_2 = self.compute_time_derivatives_no_bc()
-        self.q += (self.dt / 12) * (8 * dq_2 - dq_1 - dq_0)
-        self.psi += (self.dt / 12) * (8 * dpsi_2 - dpsi_1 - dpsi_0)
+        self.q = self.q + (self.dt / 12) * (8 * dq_2 - dq_1 - dq_0)
+        self.psi = self.psi + (self.dt / 12) * (8 * dpsi_2 - dpsi_1 - dpsi_0)
         self.n_steps += 1
 
     def step_with_bc(self) -> None:
         psi_bc = self._solver_inhomogeneous.psiq_bc[0]
 
         dpsi_0, dq_0 = self.compute_time_derivatives_with_bc()
-        self.q += self.dt * dq_0
+        self.q = self.q + self.dt * dq_0
 
-        self.psi -= psi_bc
+        self.psi = self.psi - psi_bc
         coef = 1
         self._set_boundaries(self.time.item() + coef * self.dt)
         psi_bc = self._solver_inhomogeneous.psiq_bc[0]
-        self.psi += self.dt * dpsi_0 + psi_bc
+        self.psi = self.psi + self.dt * dpsi_0 + psi_bc
 
         dpsi_1, dq_1 = self.compute_time_derivatives_with_bc()
-        self.q += (self.dt / 4) * (dq_1 - 3 * dq_0)
+        self.q = self.q + (self.dt / 4) * (dq_1 - 3 * dq_0)
 
-        self.psi -= psi_bc
+        self.psi = self.psi - psi_bc
         coef = 1 / 2
         self._set_boundaries(self.time.item() + coef * self.dt)
         psi_bc = self._solver_inhomogeneous.psiq_bc[0]
-        self.psi += (self.dt / 4) * (dpsi_1 - 3 * dpsi_0) + psi_bc
+        self.psi = self.psi + (self.dt / 4) * (dpsi_1 - 3 * dpsi_0) + psi_bc
 
         dpsi_2, dq_2 = self.compute_time_derivatives_with_bc()
-        self.q += (self.dt / 12) * (8 * dq_2 - dq_1 - dq_0)
+        self.q = self.q + (self.dt / 12) * (8 * dq_2 - dq_1 - dq_0)
 
-        self.psi -= psi_bc
+        self.psi = self.psi - psi_bc
         coef = 1
         self._set_boundaries(self.time.item() + coef * self.dt)
         psi_bc = self._solver_inhomogeneous.psiq_bc[0]
-        self.psi += (self.dt / 12) * (8 * dpsi_2 - dpsi_1 - dpsi_0) + psi_bc
+        self.psi = self.psi + (self.dt / 12) * (8 * dpsi_2 - dpsi_1 - dpsi_0) + psi_bc
 
         self.n_steps += 1
 
@@ -478,5 +478,4 @@ class QGFV:
         return self.step_no_bc()
 
     def reset_time(self) -> None:
-        logger.info("Model time set to 0.")
         self.n_steps = 0

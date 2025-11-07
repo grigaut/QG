@@ -8,6 +8,7 @@ from typing import Any
 
 import torch
 
+from qg.io import get_absolute_storage_path
 from qg.specs import defaults
 
 
@@ -60,8 +61,9 @@ def load_output_config(file: str | Path) -> dict[str, Any]:
     """
     config_data = toml.load(Path(file))
     return {
-        "folder": config_data.get("folder", "output"),
+        "folder": get_absolute_storage_path(Path(config_data.get("folder", "output"))),
         "interval": config_data.get("interval", 1),
+        "prefix": config_data.get("prefix", "results_"),
     }
 
 
@@ -79,4 +81,51 @@ def load_simulation_config(file: str | Path) -> dict[str, Any]:
     return {
         "duration": config_data.get("duration"),
         "startup_file": startup,
+    }
+
+
+def load_optimization_config(file: str | Path) -> dict[str, Any]:
+    """Load optimization configuration from toml file.
+
+    Args:
+        file (str | Path): Toml file.
+
+    Returns:
+        dict[str, Any]: Configuration.
+    """
+    config_data = toml.load(Path(file))
+    return {
+        "optimization_steps": config_data.get("optimization_steps", 100),
+        "comparison_interval": config_data.get("comparison_interval", 1),
+        "cycles": config_data.get("cycles", 1),
+    }
+
+
+def load_subdomain_config(file: str | Path) -> dict[str, Any]:
+    """Load subdomain configuration from toml file.
+
+    Args:
+        file (str | Path): Toml file.
+
+    Returns:
+        dict[str, Any]: Configuration.
+    """
+    config_data = toml.load(Path(file))
+    imin = config_data["imin"]
+    imax = config_data["imax"]
+    jmin = config_data["jmin"]
+    jmax = config_data["jmax"]
+
+    if imax < imin:
+        msg = "imin must be lower than imax."
+        raise ValueError(msg)
+    if jmax < jmin:
+        msg = "jmin must be lower than jmax."
+        raise ValueError(msg)
+
+    return {
+        "imin": imin,
+        "imax": imax,
+        "jmin": jmin,
+        "jmax": jmax,
     }

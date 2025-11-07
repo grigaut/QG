@@ -61,13 +61,7 @@ class SaveState:
             with gitignore.open("w") as file:
                 file.write("*")
 
-        self.tensors = {}
-
-    def register_tensors(self, **tensors: torch.Tensor) -> None:
-        """Register tensors to save."""
-        self.tensors = tensors
-
-    def save(self, filename: str) -> None:
+    def save(self, filename: str, **tensors: torch.Tensor) -> None:
         """Save registered tensors.
 
         Args:
@@ -76,11 +70,11 @@ class SaveState:
         Raises:
             ValueError: If no tensors were registered.
         """
-        if not self.tensors:
+        if not tensors:
             msg = "No tensors registered."
             raise ValueError(msg)
         path = self.folder.joinpath(filename)
-        torch.save({k: v.detach().cpu() for k, v in self.tensors.items()}, path)
+        torch.save({k: v.detach().cpu() for k, v in tensors.items()}, path)
         msg = f"Saved tensors to {path}"
         logger.info(msg)
 

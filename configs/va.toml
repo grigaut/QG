@@ -1,0 +1,46 @@
+n_ens = 1
+
+# Space
+
+nx = 256
+ny = 512
+
+Lx = 2_560_000
+Ly = 5_120_000
+
+# Layers
+H = [400, 1100, 2600]
+g_prime = [9.81, 0.025, 0.0125]
+
+# Wind magnitude
+tau0 = 8e-5
+
+# Beta-Plane
+f0 = 9.375e-5
+beta = 1.754e-11
+
+# Drag
+bottom_drag_coef = 3.60577e-8
+
+# Time discretization
+dt = 7200
+
+# Output
+folder = "output"
+prefix = "results_optim"
+interval = 720
+
+# Simulation
+duration = 250 # Number of steps
+startup_file="data/ic.pt"
+
+# Optimization
+optimization_steps = 200
+comparison_interval = 1
+cycles = 1
+
+# Subdomain
+imin = 32
+imax = 96
+jmin = 64
+jmax = 192
