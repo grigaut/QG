@@ -26,8 +26,8 @@ bottom_drag_coef = 3.60577e-8
 dt = 3600
 
 # Output
-folder = "output"
-interval = 720
+folder = "output_"
+interval = 10000
 
 # Simulation
-duration = 8760 # Number of steps
+duration = 87600 # Number of steps
