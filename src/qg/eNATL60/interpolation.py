@@ -5,7 +5,7 @@ import xarray as xr
 import xesmf as xe
 
 from qg.eNATL60.var_keys import LATITUDE, LONGITUDE
-from qg.physics.constants import EARTH_RADIUS
+from qg.constants import EARTH_RADIUS
 
 
 def compute_lonlat_bounds(
