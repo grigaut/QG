@@ -94,7 +94,7 @@ def load_regularization_config(file: str | Path) -> dict[str, Any]:
         dict[str, Any]: Configuration.
     """
     config_data = toml.load(Path(file))
-    gamma = config_data.get("gamma", None)
+    gamma = config_data.get("gamma", 0)
     return {
         "gamma": gamma,
     }
