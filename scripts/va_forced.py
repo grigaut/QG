@@ -3,14 +3,16 @@ Double-gyre on regular domain.
 """
 
 from collections.abc import Callable
+from math import sqrt
 from pathlib import Path
 import torch
 from qg.decomposition.base import SpaceTimeDecomposition
 from qg.decomposition.coefficients import DecompositionCoefs
-from qg.decomposition.exp_exp.core import GaussianExpBasis
-from qg.decomposition.exp_exp.param_generator import gaussian_exp_field
 from qg.decomposition.supports.space.base import SpaceSupportFunction
 from qg.decomposition.supports.time.base import TimeSupportFunction
+from qg.decomposition.wavelets.core import WaveletBasis
+from qg.decomposition.wavelets.param_generators import dyadic_decomposition
+from qg.forced import Forced
 from qg.io import SaveState
 from qg.logging import setup_root_logger, getLogger
 from qg.cli import ScriptArgs
@@ -34,14 +36,13 @@ from qg.solver.boundary_conditions.base import Boundaries
 from qg.space import compute_xy_q
 from qg.specs import defaults
 from qg.stretching_matrix import compute_A_tilde
-from qg.surfml import SurfML
 from qg.utils.cropping import crop
 from qg.wind import compute_double_gyre_wind_curl
 
 torch.backends.cudnn.deterministic = True
 torch.set_grad_enabled(False)
 
-args = ScriptArgs.from_cli(config_default=Path("configs/va_surfml.toml"))
+args = ScriptArgs.from_cli(config_default=Path("configs/va_forced.toml"))
 specs = defaults.get()
 
 setup_root_logger(args.verbose)
@@ -83,7 +84,7 @@ if optim_config["separation"] != 0:
 
 ## Regularization
 reg_config = load_regularization_config(args.config)
-with_reg = reg_config["gamma"] is not None
+with_reg = reg_config["gamma"] != 0
 
 gamma = reg_config["gamma"] / comparison_interval
 
@@ -195,8 +196,8 @@ config_sliced = {
     "n_ens": config["n_ens"],
     "mask": config["mask"][imin:imax, jmin:jmax],
     "flux_stencil": config["flux_stencil"],
-    "H": config["H"][:2],
-    "g_prime": config["g_prime"][:2],
+    "H": config["H"][:1] * config["H"][1:2] / (config["H"][:1] + config["H"][1:2]),
+    "g_prime": config["g_prime"][1:2],
     "f0": config["f0"],
     "beta": config["beta"],
     "bottom_drag_coef": 0,
@@ -313,14 +314,14 @@ def compute_regularization_func(
 # PV computation
 
 
-def build_compute_q_rg(A11, A12):
-    return lambda psi1: compute_q1_interior(
+def compute_q_rg(psi1: torch.Tensor) -> torch.Tensor:
+    return compute_q1_interior(
         psi1,
         torch.zeros_like(psi1),
-        A11,
-        A12,
-        qg_3l.dx,
-        qg_3l.dy,
+        1 / H1 / H2 * (H1 + H1) / g2,
+        0,
+        dx,
+        dy,
         config["f0"],
         beta_effect_w[..., 1:-1],
     )
@@ -349,107 +350,92 @@ for c in range(n_cycles):
 
     psi_bcs = [Boundaries.extract(psi, bc, -bc - 1, bc, -bc - 1, 2) for psi in psis]
     psi_bc_interp = QuadraticInterpolation(times, psi_bcs)
+    qs = (compute_q_rg(p1) for p1 in psis)
+    q_bcs = [Boundaries.extract(q, bc - 2, -(bc - 1), bc - 2, -(bc - 1), 3) for q in qs]
+    q_bc_interp = QuadraticInterpolation(times, q_bcs)
 
-    space_params, time_params = gaussian_exp_field(
-        0,
-        3,
-        xx,
-        yy,
-        n_steps * dt,
-        n_steps / 6 * 7200,
+    space_params, time_params = dyadic_decomposition(
+        order=5,
+        xx_ref=xx,
+        yy_ref=yy,
+        Lxy_max=900_000,
+        Lt_max=n_steps * dt,
     )
-    basis = GaussianExpBasis(space_params, time_params)
-    coefs = DecompositionCoefs.zeros_like(basis.generate_random_coefs())
+
+    basis = WaveletBasis(space_params, time_params)
+    basis.n_theta = 7
+
+    msg = f"Using basis of order {basis.order}"
+    logger.info(msg)
+
+    coefs = basis.generate_random_coefs()
+    coefs = DecompositionCoefs.zeros_like(coefs)
     coefs = coefs.requires_grad_()
 
-    kappa: torch.Tensor = torch.tensor(0, **specs, requires_grad=True)
-    numel = kappa.numel() + coefs.numel()
-    params = [
-        {"params": [kappa], "lr": 1e-2, "name": "κ"},
-        {
-            "params": list(coefs.values()),
-            "lr": 1e0,
-            "name": "Decomposition coefs",
-        },
-    ]
-
+    numel = coefs.numel()
     msg = f"Control vector contains {numel} elements."
     logger.info(box(msg, style="round"))
 
-    optimizer = torch.optim.Adam(params)
+    optimizer = torch.optim.Adam(
+        [
+            {
+                "params": list(coefs.values()),
+                "lr": 1e-2,
+                "name": "Wavelet coefs",
+            }
+        ]
+    )
+
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, factor=0.5, patience=5
     )
     lr_callback = LRChangeCallback(optimizer)
     early_stop = EarlyStop()
 
-    coefs_scaled = coefs.scale(
-        *(1e-1 * psi0_mean / (n_steps * dt) ** k for k in range(basis.order))
-    )
-    epsilon = 0.1
-    register_params = RegisterParams(
-        alpha=torch.exp(epsilon * kappa + kappa * kappa.abs()) - 1,
-        coefs=coefs_scaled.to_dict(),
-    )
+    coefs_scaled = coefs.scale(*(U**2 / L**2 for _ in range(basis.order)))
+
+    register_params = RegisterParams(coefs=coefs_scaled.to_dict())
+
     for o in range(n_optim):
         torch.cuda.reset_peak_memory_stats()
         optimizer.zero_grad()
-        qg = SurfML(config_sliced)
+        qg = Forced(config_sliced)
+        qg.wind_scaling = H1.item()
         qg.y0 = qg_3l.y0
         qg.set_wind_forcing(curl_tau[..., imin:imax, jmin:jmax])
         qg.reset_time()
+        qg.set_boundary_maps(psi_bc_interp, q_bc_interp)
 
         with torch.enable_grad():
-            alpha = torch.exp(epsilon * kappa + kappa * kappa.abs()) - 1
-            coefs_scaled = coefs.scale(
-                *(1e-1 * psi0_mean / (n_steps * dt) ** k for k in range(basis.order))
-            )
+            qg.set_psiq(crop(psi0, bc), crop(compute_q_rg(psi0), bc - 1))
 
+            coefs_scaled = coefs.scale(*(U**2 / L**2 for _ in range(basis.order)))
             basis.set_coefs(coefs_scaled)
 
-            qg.basis = basis
-            qg.alpha = alpha
-
-            compute_reg = compute_regularization_func(basis, alpha)
-
-            compute_q_rg = build_compute_q_rg(
-                qg.A[:1, :1],
-                qg.A[:1, 1:2],
-            )
-            q0 = crop(compute_q_rg(psi0), bc - 1)
-
-            qs = (compute_q_rg(p1) for p1 in psis)
-            q_bcs = [
-                Boundaries.extract(q, bc - 2, -(bc - 1), bc - 2, -(bc - 1), 3)
-                for q in qs
-            ]
-            q_bc_interp = QuadraticInterpolation(times, q_bcs)
-
-            qg.set_psiq(crop(psi0[:, :1], bc), q0)
-            qg.set_boundary_maps(psi_bc_interp, q_bc_interp)
+            wv = basis.localize(*compute_xy_q(xx, yy))
 
             loss = torch.tensor(0, **defaults.get())
 
             for n in range(1, n_steps):
-                psi1_ = qg.psi
-                time = qg.time.clone()
-
+                qg.forcing = wv(qg.time)[None, None, ...]
                 qg.step()
-
-                psi1 = qg.psi
-
-                if with_reg:
-                    dpsi1_ = (psi1 - psi1_) / dt
-                    reg = gamma * compute_reg(psi1_, dpsi1_, time)
-                    loss += reg
 
                 loss = update_loss(
                     loss,
-                    psi1[0, 0],
+                    qg.psi[0, 0],
                     crop(psis[n][0, 0], bc),
                     qg.time,
                     variance=var_ref,
                 )
+            if with_reg:
+                for lvl, coef in coefs.items():
+                    sigma_x = space_params[lvl]["sigma_x"] / dx
+                    sigma_y = space_params[lvl]["sigma_y"] / dy
+                    loss += (
+                        gamma
+                        * sqrt(sigma_x * sigma_y) ** (-5 / 3)
+                        * coef.square().mean()
+                    )
 
         if torch.isnan(loss.detach()):
             msg = "Loss has diverged."
@@ -461,11 +447,7 @@ for c in range(n_cycles):
             logger.warning(box(msg, style="="))
             break
 
-        register_params.step(
-            loss,
-            alpha=alpha,
-            coefs=coefs_scaled.to_dict(),
-        )
+        register_params.step(loss, coefs=coefs_scaled.to_dict())
 
         if early_stop.step(loss):
             msg = f"Convergence reached after {o + 1} iterations."
@@ -483,8 +465,6 @@ for c in range(n_cycles):
         logger.info(msg)
 
         loss.backward()
-
-        torch.nn.utils.clip_grad_value_([kappa], clip_value=1.0)
 
         torch.nn.utils.clip_grad_norm_(list(coefs.values()), max_norm=1e0)
 
@@ -513,7 +493,6 @@ for c in range(n_cycles):
         },
         "specs": {"max_memory_allocated": max_mem},
         "coords": (imin, imax, jmin, jmax),
-        "alpha": register_params.params["alpha"],
         "coefs": register_params.params["coefs"],
     }
     outputs.append(output)

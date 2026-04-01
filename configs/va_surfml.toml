@@ -26,7 +26,7 @@ bottom_drag_coef = 3.60577e-8
 dt = 7200
 
 # Output
-folder = "output"
+folder = "surfml"
 prefix = "results_optim"
 interval = 720
 
@@ -37,10 +37,13 @@ startup_file="data/ic.pt"
 # Optimization
 optimization_steps = 200
 comparison_interval = 1
-cycles = 1
+cycles = 2
+separation = 250
+## Regularization
+gamma = 100
 
 # Subdomain
 imin = 32
 imax = 96
-jmin = 64
-jmax = 192
+jmin = 256
+jmax = 384
