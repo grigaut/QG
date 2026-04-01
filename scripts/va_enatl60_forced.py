@@ -296,7 +296,7 @@ def compute_q_rg(psi1: torch.Tensor) -> torch.Tensor:
     return compute_q1_interior(
         psi1,
         torch.zeros_like(psi1),
-        1 / H1 / H2 * (H1 + H1) / g2,
+        1 / H1 / H2 * (H1 + H2) / g2,
         0,
         dx,
         dy,
