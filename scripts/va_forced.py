@@ -2,14 +2,10 @@
 Double-gyre on regular domain.
 """
 
-from collections.abc import Callable
 from math import sqrt
 from pathlib import Path
 import torch
-from qg.decomposition.base import SpaceTimeDecomposition
 from qg.decomposition.coefficients import DecompositionCoefs
-from qg.decomposition.supports.space.base import SpaceSupportFunction
-from qg.decomposition.supports.time.base import TimeSupportFunction
 from qg.decomposition.wavelets.core import WaveletBasis
 from qg.decomposition.wavelets.param_generators import dyadic_decomposition
 from qg.forced import Forced
@@ -24,7 +20,7 @@ from qg.config import (
     load_simulation_config,
     load_subdomain_config,
 )
-from qg.fd import grad, grad_perp, interp_TP
+from qg.fd import grad_perp
 from qg.interpolation import QuadraticInterpolation
 from qg.logging.utils import box, sec2text, step
 from qg.observations.satellite_track import SatelliteTrackMask
@@ -35,7 +31,6 @@ from qg.qgm import QGFV
 from qg.solver.boundary_conditions.base import Boundaries
 from qg.space import compute_xy_q
 from qg.specs import defaults
-from qg.stretching_matrix import compute_A_tilde
 from qg.utils.cropping import crop
 from qg.wind import compute_double_gyre_wind_curl
 
@@ -208,8 +203,12 @@ config_sliced = {
 H1, H2 = config["H"][0, 0, 0], config["H"][1, 0, 0]
 g1, g2 = config["g_prime"][0, 0, 0], config["g_prime"][1, 0, 0]
 
-beta_effect = config["beta"] * (yv[jmin:jmax] - qg_3l.y0)
-beta_effect_w = config["beta"] * (yv[jmin - bc : jmax + bc] - qg_3l.y0)
+beta_effect = config["beta"] * (
+    (yv[1 + jmin : jmax + 1] + yv[jmin:jmax]) / 2 - qg_3l.y0
+)
+beta_effect_w = config["beta"] * (
+    (yv[1 + jmin - bc : jmax + bc + 1] + yv[jmin - bc : jmax + bc]) / 2 - qg_3l.y0
+)
 
 
 def update_loss(
@@ -227,88 +226,6 @@ def update_loss(
     f_sliced = f.flatten()[mask.flatten()]
     f_ref_sliced = f_ref.flatten()[mask.flatten()]
     return loss + (f_sliced - f_ref_sliced).square().sum() / variance
-
-
-def compute_regularization_func(
-    psi2_basis: SpaceTimeDecomposition[SpaceSupportFunction, TimeSupportFunction],
-    alpha: torch.Tensor,
-) -> Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]:
-    """Build regularization function.
-
-    Args:
-        psi2_basis (SpaceTimeDecomposition): Basis.
-        alpha (torch.Tensor) : Baroclinic radius perturbation.
-        space (SpaceDiscretization2D): Space.
-
-    Returns:
-        Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]:
-            Regularization function.
-    """
-    A_tilde = compute_A_tilde(
-        config["H"][:2, 0, 0],
-        config["g_prime"][:2, 0, 0],
-        alpha,
-        **specs,
-    )
-    A_21 = A_tilde[1:2, :1]
-    A_22 = A_tilde[1:2, 1:2]
-
-    xq, yq = compute_xy_q(xx, yy)
-    x = crop(xq, 1)
-    y = crop(yq, 1)
-
-    fpsi2 = psi2_basis.localize(x, y)
-    fdx_psi2 = psi2_basis.localize_dx(x, y)
-    fdy_psi2 = psi2_basis.localize_dy(x, y)
-    flap_psi2 = psi2_basis.localize_laplacian(x, y)
-    fdx_lap_psi2 = psi2_basis.localize_dx_laplacian(x, y)
-    fdy_lap_psi2 = psi2_basis.localize_dy_laplacian(x, y)
-
-    f0: float = config["f0"]
-    beta: float = config["beta"]
-
-    def compute_reg(
-        psi1: torch.Tensor,
-        dpsi1: torch.Tensor,
-        time: torch.Tensor,
-    ) -> torch.Tensor:
-        """Compute regularization term.
-
-        Args:
-            psi1 (torch.Tensor): Top layer stream function.
-            dpsi1 (torch.Tensor): Top layer stream function derivative.
-            time (torch.Tensor): Time.
-
-        Returns:
-            torch.Tensor: ∂ₜq₂ + J(ѱ₂, q₂)
-        """
-        dt_lap_psi2 = flap_psi2.dt(time)
-        dt_psi2 = fpsi2.dt(time)
-
-        dt_q2 = dt_lap_psi2 - f0**2 * (
-            A_22 * dt_psi2 + A_21 * interp_TP(crop(dpsi1, 1))
-        )
-
-        dx_psi1, dy_psi1 = grad(psi1, dx, dy)
-
-        dx_psi1_i = (dx_psi1[..., 1:] + dx_psi1[..., :-1]) / 2
-        dy_psi1_i = (dy_psi1[..., 1:, :] + dy_psi1[..., :-1, :]) / 2
-
-        dx_psi2 = fdx_psi2(time)
-        dy_psi2 = fdy_psi2(time)
-
-        dy_q2 = (
-            fdy_lap_psi2(time) - f0**2 * (A_22 * dy_psi2 + A_21 * crop(dy_psi1_i, 1))
-        ) + beta
-
-        dx_q2 = fdx_lap_psi2(time) - f0**2 * (
-            A_22 * dx_psi2 + A_21 * crop(dx_psi1_i, 1)
-        )
-
-        adv_q2 = -dy_psi2 * dx_q2 + dx_psi2 * dy_q2
-        return ((dt_q2 + adv_q2) / U * L * T).square().sum()
-
-    return compute_reg
 
 
 # PV computation

@@ -207,8 +207,12 @@ config_sliced = {
 H1, H2 = config["H"][0, 0, 0], config["H"][1, 0, 0]
 g1, g2 = config["g_prime"][0, 0, 0], config["g_prime"][1, 0, 0]
 
-beta_effect = config["beta"] * (yv[jmin:jmax] - qg_3l.y0)
-beta_effect_w = config["beta"] * (yv[jmin - bc : jmax + bc] - qg_3l.y0)
+beta_effect = config["beta"] * (
+    (yv[1 + jmin : jmax + 1] + yv[jmin:jmax]) / 2 - qg_3l.y0
+)
+beta_effect_w = config["beta"] * (
+    (yv[1 + jmin - bc : jmax + bc + 1] + yv[jmin - bc : jmax + bc]) / 2 - qg_3l.y0
+)
 
 
 def update_loss(
