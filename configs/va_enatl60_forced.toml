@@ -1,0 +1,44 @@
+n_ens = 1
+
+# Space
+
+nx = 76
+ny = 111
+
+Lx = 760_000
+Ly = 1_110_000
+
+# Layers
+H = [400, 1100, 2600]
+g_prime = [9.81, 0.025, 0.0125]
+
+# Wind magnitude
+tau0 = 8e-5
+
+# Beta-Plane
+# f0 = 9.375e-5
+# beta = 1.754e-11
+
+# Drag
+bottom_drag_coef = 3.60577e-8
+
+# Time discretization
+dt = 7200
+
+# Output
+folder = "enatl60_forced"
+prefix = "results_optim"
+
+# Simulation
+duration = 240 # Number of steps
+
+# Optimization
+optimization_steps = 200
+comparison_interval = 1
+cycles = 4
+separation = 0
+## Regularization
+gamma = 1e5
+
+# Season
+season = "summer"

@@ -32,6 +32,20 @@ class QGFV:
         """Simulated time."""
         return torch.tensor(self.n_steps * self.dt, **self.arr_kwargs)
 
+    @property
+    def _substep_time(self) -> torch.Tensor:
+        if self._rk3_step == 0:
+            coef = 1 / 2
+            return self.time + coef * self.dt
+        if self._rk3_step == 1:
+            coef = 3 / 2
+            return self.time + coef * self.dt
+        if self._rk3_step == 2:
+            coef = 1
+            return self.time + coef * self.dt
+        msg = "SSPRK3 should only perform 3 steps."
+        raise ValueError(msg)
+
     def __init__(self, param: dict[str, Any]):
         # physical params
         self.reset_time()
@@ -426,15 +440,17 @@ class QGFV:
 
     def step_no_bc(self) -> None:
         """Time itegration with SSP-RK3 scheme."""
-
+        self._rk3_step = 0
         dpsi_0, dq_0 = self.compute_time_derivatives_no_bc()
         self.q = self.q + self.dt * dq_0
         self.psi = self.psi + self.dt * dpsi_0
 
+        self._rk3_step = 1
         dpsi_1, dq_1 = self.compute_time_derivatives_no_bc()
         self.q = self.q + (self.dt / 4) * (dq_1 - 3 * dq_0)
         self.psi = self.psi + (self.dt / 4) * (dpsi_1 - 3 * dpsi_0)
 
+        self._rk3_step = 2
         dpsi_2, dq_2 = self.compute_time_derivatives_no_bc()
         self.q = self.q + (self.dt / 12) * (8 * dq_2 - dq_1 - dq_0)
         self.psi = self.psi + (self.dt / 12) * (8 * dpsi_2 - dpsi_1 - dpsi_0)
@@ -443,6 +459,7 @@ class QGFV:
     def step_with_bc(self) -> None:
         psi_bc = self._solver_inhomogeneous.psiq_bc[0]
 
+        self._rk3_step = 0
         dpsi_0, dq_0 = self.compute_time_derivatives_with_bc()
         self.q = self.q + self.dt * dq_0
 
@@ -452,6 +469,7 @@ class QGFV:
         psi_bc = self._solver_inhomogeneous.psiq_bc[0]
         self.psi = self.psi + self.dt * dpsi_0 + psi_bc
 
+        self._rk3_step = 1
         dpsi_1, dq_1 = self.compute_time_derivatives_with_bc()
         self.q = self.q + (self.dt / 4) * (dq_1 - 3 * dq_0)
 
@@ -461,6 +479,7 @@ class QGFV:
         psi_bc = self._solver_inhomogeneous.psiq_bc[0]
         self.psi = self.psi + (self.dt / 4) * (dpsi_1 - 3 * dpsi_0) + psi_bc
 
+        self._rk3_step = 2
         dpsi_2, dq_2 = self.compute_time_derivatives_with_bc()
         self.q = self.q + (self.dt / 12) * (8 * dq_2 - dq_1 - dq_0)
 

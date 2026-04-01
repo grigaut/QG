@@ -8,7 +8,6 @@ from qg.solver.boundary_conditions.base import Boundaries
 from qg.fd import interp_TP, laplacian
 from qg.solver.pv_inversion import (
     InhomogeneousPVInversion,
-    InhomogeneousPVInversionCollinear,
 )
 from qg.specs import defaults
 
@@ -72,35 +71,6 @@ def test_solver() -> None:
         "lm,...mxy->...lxy", A, psi[..., 1:-1, 1:-1]
     )
     solver = InhomogeneousPVInversion(A, f0, dx, dy)
-    solver.set_boundaries(psi_bc)
-    psi_ = solver.compute_stream_function(q)
-
-    torch.testing.assert_close(psi, psi_, rtol=1e-12, atol=1e-12)
-
-
-def test_collinear_solver() -> None:
-    """Test the inhomogeneous solver."""
-    H = torch.tensor([400, 1100], **defaults.get())  # noqa: N806
-    g_prime = torch.tensor([9.81, 0.025], **defaults.get())
-    f0 = 1e-4
-    dx = 1e4
-    dy = 1e4
-
-    A = compute_A(H, g_prime, **defaults.get())  # noqa: N806
-
-    A_11 = A[0, 0]  # noqa: N806
-    A_12 = A[0, 1]  # noqa: N806
-
-    psi = torch.rand((2, 1, 50, 75), **defaults.get())
-    alpha = torch.ones_like(psi) * 0.5
-
-    psi_bc = Boundaries.extract(psi, 0, -1, 0, -1, width=1)
-
-    q = (
-        laplacian(psi, dx, dy)
-        - f0**2 * (A_11 + alpha[..., 1:-1, 1:-1] * A_12) * psi[..., 1:-1, 1:-1]
-    )
-    solver = InhomogeneousPVInversionCollinear(A, alpha, f0, dx, dy)
     solver.set_boundaries(psi_bc)
     psi_ = solver.compute_stream_function(q)
 

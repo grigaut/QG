@@ -98,7 +98,7 @@ class AnimatedHeatmaps(BaseAnimatedPlot[torch.Tensor]):
             go.Frame: Frame.
         """
         frame_arrays = self._datas[frame_index][1]
-        zmax = self._compute_zmax(self._datas[0][1])
+        zmax = self._compute_zmax(self._datas[frame_index][1])
         zmin = -zmax if self._zmin is None else self._zmin
         showscales = self._compute_showscales(frame_arrays)
         return go.Frame(

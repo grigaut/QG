@@ -42,11 +42,12 @@ def load_model_config(file: str | Path) -> dict[str, Any]:
         "H": H,
         "g_prime": g_prime,
         "tau0": config_data.get("tau0", 8e-5),
-        "f0": config_data["f0"],
+        "f0": config_data.get("f0", 9.375e-5),
         "beta": config_data.get("beta", 0),
         "bottom_drag_coef": config_data.get("bottom_drag_coef", 0),
         "device": specs["device"],
         "dt": config_data["dt"],  # time-step (s)
+        "rho0": config_data.get("rho0", 1000),
     }
 
 
@@ -84,6 +85,22 @@ def load_simulation_config(file: str | Path) -> dict[str, Any]:
     }
 
 
+def load_regularization_config(file: str | Path) -> dict[str, Any]:
+    """Load output configuration from toml file.
+
+    Args:
+        file (str | Path): Toml file.
+
+    Returns:
+        dict[str, Any]: Configuration.
+    """
+    config_data = toml.load(Path(file))
+    gamma = config_data.get("gamma", 0)
+    return {
+        "gamma": gamma,
+    }
+
+
 def load_optimization_config(file: str | Path) -> dict[str, Any]:
     """Load optimization configuration from toml file.
 
@@ -98,6 +115,7 @@ def load_optimization_config(file: str | Path) -> dict[str, Any]:
         "optimization_steps": config_data.get("optimization_steps", 100),
         "comparison_interval": config_data.get("comparison_interval", 1),
         "cycles": config_data.get("cycles", 1),
+        "separation": config_data.get("separation", 0),
     }
 
 
@@ -129,3 +147,17 @@ def load_subdomain_config(file: str | Path) -> dict[str, Any]:
         "jmin": jmin,
         "jmax": jmax,
     }
+
+
+def load_season_config(file: str | Path) -> dict[str, Any]:
+    """Load season configuration from toml file.
+
+    Args:
+        file (str | Path): Toml file.
+
+    Returns:
+        dict[str, Any]: Configuration.
+    """
+    config_data = toml.load(Path(file))
+    season = config_data["season"]
+    return {"season": season}

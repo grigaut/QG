@@ -1,0 +1,11 @@
+"""Variables keys."""
+
+TIME = "time"
+LATITUDE = "lat"
+LONGITUDE = "lon"
+SSH = "ssh"
+VORTICITY = "vorticity"
+STREAMFUNCTION = "psi"
+ATMOS_PRESSURE = "msl"
+ZONAL_WIND_10M = "u10"
+MERIDIONAL_WIND_10M = "v10"

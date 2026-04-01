@@ -23,11 +23,26 @@ beta = 1.754e-11
 bottom_drag_coef = 3.60577e-8
 
 # Time discretization
-dt = 3600
+dt = 7200
 
 # Output
-folder = "output_"
-interval = 10000
+folder = "forced"
+prefix = "results_optim"
 
 # Simulation
-duration = 87600 # Number of steps
+duration = 250 # Number of steps
+startup_file="data/ic.pt"
+
+# Optimization
+optimization_steps = 200
+comparison_interval = 1
+cycles = 12
+separation = 250
+## Regularization
+gamma = 1e9
+
+# Subdomain
+imin = 32
+imax = 96
+jmin = 256
+jmax = 384

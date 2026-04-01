@@ -9,6 +9,11 @@ def grad_perp(
     return (-f.diff(dim=-1) / dy, f.diff(dim=-2) / dx)
 
 
+def grad(f: torch.Tensor, dx: float, dy: float) -> tuple[torch.Tensor, torch.Tensor]:
+    """Gradient"""
+    return (f.diff(dim=-2) / dx, f.diff(dim=-1) / dy)
+
+
 def interp_TP(f):
     return 0.25 * (
         f[..., 1:, 1:] + f[..., 1:, :-1] + f[..., :-1, 1:] + f[..., :-1, :-1]

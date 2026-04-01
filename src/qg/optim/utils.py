@@ -1,8 +1,11 @@
 """Utils."""
 
+from typing import Any
+
 import torch
 
 from qg import logging
+from qg.utils.tensor_dict import iterate_over_dict
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +57,10 @@ class RegisterParams:
             **kwargs (torch.Tensor): Initial parameters.
         """
         self.best_loss = torch.tensor(float("inf"))
-        self.params = {k: v.detach().clone() for k, v in kwargs.items()}
+        self.params = self._detach_clone(kwargs)
+
+    def _detach_clone(self, params: dict[str, Any]) -> dict[str, Any]:
+        return iterate_over_dict(params, lambda t: t.detach().clone())
 
     def step(self, loss: torch.Tensor, **kwargs: torch.Tensor) -> None:
         """Check against new loss.
@@ -65,7 +71,7 @@ class RegisterParams:
         """
         if loss.item() > self.best_loss.item():
             return
-        self.params = {k: v.detach().clone() for k, v in kwargs.items()}
+        self.params = self._detach_clone(kwargs)
         self.best_loss = torch.clone(loss.detach())
 
     def restore(self, **targets: torch.Tensor) -> None:
