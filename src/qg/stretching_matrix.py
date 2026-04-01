@@ -46,6 +46,39 @@ def compute_A(  # noqa: N802
     return A
 
 
+def compute_A_tilde(  # noqa: N802
+    H: torch.Tensor,
+    g_prime: torch.Tensor,
+    alpha: torch.Tensor,
+    dtype: torch.dtype | None = None,
+    device: torch.device | None = None,
+) -> torch.Tensor:
+    """Compute the stretching operator matrix A.
+
+    Args:
+        H (torch.Tensor): Layers reference height.
+            └── (nl, )-shaped
+        g_prime (torch.Tensor): Reduced gravity values.
+            └── (nl, )-shaped
+        alpha (torch.tensor): Baroclinic radius correction.
+            └── (, )-shaped
+        dtype (torch.dtype): Data type
+        device (torch.device | None): Device. Defaults to None.
+
+    Returns:
+        torch.Tensor: Streching operator matrix
+            └── (nl, nl)-shaped
+    """
+    nl = H.shape[0]
+    if nl != 2:
+        msg = "This is only valid for 2-layers matrices."
+        raise ValueError(msg)
+    A = compute_A(H, g_prime, dtype=dtype, device=device)
+    Cm2l, Lambda, Cl2m = compute_layers_to_mode_decomposition(A)
+    Lambda_tilde = Lambda * torch.stack([1 + alpha, torch.ones_like(alpha)])
+    return Cm2l @ torch.diag(Lambda_tilde) @ Cl2m
+
+
 def compute_layers_to_mode_decomposition(
     A: torch.Tensor,  # noqa: N803
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
