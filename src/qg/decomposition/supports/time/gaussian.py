@@ -6,7 +6,7 @@ from typing import Any
 import torch
 from torch._tensor import Tensor
 
-from qgsw import specs
+from qg import specs
 from qg.decomposition.supports.time.base import TimeSupportFunction
 
 

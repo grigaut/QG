@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import torch
 from matplotlib.animation import FuncAnimation
 
-from qgsw import plots
+from qg import plots
 from qg.logging.utils import sec2text
 from qg.plots.plt_wrapper import retrieve_imshow_data
 from qg.specs import defaults

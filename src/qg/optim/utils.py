@@ -4,7 +4,7 @@ from typing import Any
 
 import torch
 
-from qgsw import logging
+from qg import logging
 from qg.utils.tensor_dict import iterate_over_dict
 
 logger = logging.getLogger(__name__)

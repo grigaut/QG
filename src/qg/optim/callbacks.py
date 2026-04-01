@@ -2,7 +2,7 @@
 
 import torch
 
-from qgsw import logging
+from qg import logging
 
 logger = logging.getLogger(__name__)
 
