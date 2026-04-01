@@ -84,6 +84,22 @@ def load_simulation_config(file: str | Path) -> dict[str, Any]:
     }
 
 
+def load_regularization_config(file: str | Path) -> dict[str, Any]:
+    """Load output configuration from toml file.
+
+    Args:
+        file (str | Path): Toml file.
+
+    Returns:
+        dict[str, Any]: Configuration.
+    """
+    config_data = toml.load(Path(file))
+    gamma = config_data.get("gamma", None)
+    return {
+        "gamma": gamma,
+    }
+
+
 def load_optimization_config(file: str | Path) -> dict[str, Any]:
     """Load optimization configuration from toml file.
 
@@ -98,6 +114,7 @@ def load_optimization_config(file: str | Path) -> dict[str, Any]:
         "optimization_steps": config_data.get("optimization_steps", 100),
         "comparison_interval": config_data.get("comparison_interval", 1),
         "cycles": config_data.get("cycles", 1),
+        "separation": config_data.get("separation", 0),
     }
 
 
