@@ -12,8 +12,8 @@ Ly = 1_110_000
 H = [400, 1100, 2600]
 g_prime = [9.81, 0.025, 0.0125]
 
-# Wind magnitude
-tau0 = 8e-5
+# Water density
+rho0 = 1000.0
 
 # Beta-Plane
 # f0 = 9.375e-5
@@ -26,7 +26,7 @@ bottom_drag_coef = 3.60577e-8
 dt = 7200
 
 # Output
-folder = "enatl60_surfml"
+folder = "enatl60_surfml_summer"
 prefix = "results_optim"
 
 # Simulation
