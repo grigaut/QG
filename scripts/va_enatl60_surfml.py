@@ -4,6 +4,7 @@ Double-gyre on regular domain.
 
 from collections.abc import Callable
 from pathlib import Path
+import shutil
 import numpy as np
 import torch
 from scipy.ndimage import gaussian_filter
@@ -55,7 +56,7 @@ from qg.utils.storage import get_path_from_env
 torch.backends.cudnn.deterministic = True
 torch.set_grad_enabled(False)
 
-args = ScriptArgs.from_cli(config_default=Path("configs/va_enatl60_surfml.toml"))
+args = ScriptArgs.from_cli(config_default=Path("configs/va_enatl60_surfml_summer.toml"))
 specs = defaults.get()
 
 setup_root_logger(args.verbose)
@@ -84,8 +85,6 @@ dx = Lx / nx
 dy = Ly / ny
 dt = config["dt"]
 n_year = int(365 * 24 * 3600 / dt)
-
-print(dx, dy)
 
 ## Load eNATL60 grid
 n_file_per_cycle = 20
@@ -207,7 +206,19 @@ output_config = load_output_config(args.config)
 
 prefix = output_config["prefix"]
 filename = f"{prefix}.pt"
-output_file: Path = output_config["folder"].joinpath(filename)
+folder: Path = output_config["folder"]
+
+if folder.is_dir():
+    msg = f"{folder} already exists and will be overidden."
+    logger.warning(msg)
+    shutil.rmtree(folder, ignore_errors=True)
+else:
+    folder.mkdir()
+    gitignore = folder.joinpath(".gitignore")
+    with gitignore.open("w") as file:
+        file.write("*")
+
+output_file: Path = folder.joinpath(filename)
 
 msg_output = f"Outputs will be save at {output_file}"
 
@@ -294,16 +305,20 @@ def update_loss(
     return loss + (f_sliced - f_ref_sliced).square().sum() / variance
 
 
+## Regularization
+
+
 def compute_regularization_func(
     psi2_basis: SpaceTimeDecomposition[SpaceSupportFunction, TimeSupportFunction],
     alpha: torch.Tensor,
+    scale: float,
 ) -> Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]:
     """Build regularization function.
 
     Args:
         psi2_basis (SpaceTimeDecomposition): Basis.
         alpha (torch.Tensor) : Baroclinic radius perturbation.
-        space (SpaceDiscretization2D): Space.
+        scale (float): Regularizaiton scaling value.
 
     Returns:
         Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]:
@@ -368,7 +383,7 @@ def compute_regularization_func(
         )
 
         adv_q2 = -dy_psi2 * dx_q2 + dx_psi2 * dy_q2
-        return ((dt_q2 + adv_q2) / U * L * T).square().sum()
+        return ((dt_q2 + adv_q2) / scale).square().sum()
 
     return compute_reg
 
@@ -517,7 +532,7 @@ for c in range(n_cycles):
     kappa: torch.Tensor = torch.tensor(0, **specs, requires_grad=True)
     numel = kappa.numel() + coefs.numel()
     params = [
-        {"params": [kappa], "lr": 1e-2, "name": "κ"},
+        {"params": [kappa], "lr": 1e-1, "name": "κ"},
         {
             "params": list(coefs.values()),
             "lr": 1e0,
@@ -560,7 +575,7 @@ for c in range(n_cycles):
             qg.basis = basis
             qg.alpha = alpha
 
-            compute_reg = compute_regularization_func(basis, alpha)
+            compute_reg = compute_regularization_func(basis, alpha, scale=1 / T**2)
 
             compute_q_rg = build_compute_q_rg(
                 qg.A[:1, :1],
@@ -579,6 +594,14 @@ for c in range(n_cycles):
             qg.set_boundary_maps(psi_bc_interp, q_bc_interp)
 
             loss = torch.tensor(0, **defaults.get())
+
+            loss = update_loss(
+                loss,
+                qg.psi[0, 0],
+                crop(psis_ref[0][0, 0], bc),
+                qg.time,
+                variance=var_ref,
+            )
 
             for n in range(1, n_steps):
                 psi1_ = qg.psi

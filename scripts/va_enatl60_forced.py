@@ -4,6 +4,7 @@ Double-gyre on regular domain.
 
 from math import sqrt
 from pathlib import Path
+import shutil
 import numpy as np
 import torch
 from scipy.ndimage import gaussian_filter
@@ -50,7 +51,7 @@ from qg.utils.storage import get_path_from_env
 torch.backends.cudnn.deterministic = True
 torch.set_grad_enabled(False)
 
-args = ScriptArgs.from_cli(config_default=Path("configs/va_enatl60_forced.toml"))
+args = ScriptArgs.from_cli(config_default=Path("configs/va_enatl60_forced_summer.toml"))
 specs = defaults.get()
 
 setup_root_logger(args.verbose)
@@ -79,8 +80,6 @@ dx = Lx / nx
 dy = Ly / ny
 dt = config["dt"]
 n_year = int(365 * 24 * 3600 / dt)
-
-print(dx, dy)
 
 ## Load eNATL60 grid
 n_file_per_cycle = 20
@@ -202,7 +201,20 @@ output_config = load_output_config(args.config)
 
 prefix = output_config["prefix"]
 filename = f"{prefix}.pt"
-output_file: Path = output_config["folder"].joinpath(filename)
+folder: Path = output_config["folder"]
+
+if folder.is_dir():
+    msg = f"{folder} already exists and will be overidden."
+    logger.warning(msg)
+    shutil.rmtree(folder, ignore_errors=True)
+else:
+    folder.mkdir()
+
+    gitignore = folder.joinpath(".gitignore")
+    with gitignore.open("w") as file:
+        file.write("*")
+
+output_file: Path = folder.joinpath(filename)
 
 msg_output = f"Outputs will be save at {output_file}"
 
@@ -480,6 +492,14 @@ for c in range(n_cycles):
             wv = basis.localize(*compute_xy_q(xx, yy))
 
             loss = torch.tensor(0, **defaults.get())
+
+            loss = update_loss(
+                loss,
+                qg.psi[0, 0],
+                crop(psis_ref[0][0, 0], bc),
+                qg.time,
+                variance=var_ref,
+            )
 
             for n in range(1, n_steps):
                 qg.forcing = wv(qg.time)[None, None, ...]

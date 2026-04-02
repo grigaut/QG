@@ -4,6 +4,7 @@ Double-gyre on regular domain.
 
 from math import sqrt
 from pathlib import Path
+import shutil
 import torch
 from qg.decomposition.coefficients import DecompositionCoefs
 from qg.decomposition.wavelets.core import WaveletBasis
@@ -37,7 +38,7 @@ from qg.wind import compute_double_gyre_wind_curl
 torch.backends.cudnn.deterministic = True
 torch.set_grad_enabled(False)
 
-args = ScriptArgs.from_cli(config_default=Path("configs/va_forced.toml"))
+args = ScriptArgs.from_cli(config_default=Path("configs/va_forced_z2.toml"))
 specs = defaults.get()
 
 setup_root_logger(args.verbose)
@@ -108,8 +109,15 @@ msg_subdomain = f"Focusing on i in [{imin}, {imax}] and j in [{jmin}, {jmax}]"
 output_config = load_output_config(args.config)
 
 prefix = output_config["prefix"]
-filename = f"{prefix}_{imin}_{imax}_{jmin}_{jmax}.pt"
-output_file: Path = output_config["folder"].joinpath(filename)
+filename = f"{prefix}.pt"
+folder: Path = output_config["folder"]
+
+if folder.is_dir():
+    msg = f"{folder} already exists and will be overidden."
+    logger.warning(msg)
+    shutil.rmtree(folder, ignore_errors=True)
+
+output_file: Path = folder.joinpath(filename)
 
 msg_output = f"Outputs will be save at {output_file}"
 
@@ -171,7 +179,7 @@ if (f := sim_config["startup_file"]) is not None:
         startup["psi"].to(**specs),
         startup["q"].to(**specs),
     )
-saver = SaveState(output_config["folder"])
+saver = SaveState(folder)
 saver.save("ic.pt", psi=qg_3l.psi, q=qg_3l.q)
 saver.copy_config(args.config)
 
