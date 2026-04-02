@@ -4,4 +4,10 @@ The base QG model on arbitrary geometries with homogeneous boundary conditions i
 
 ## Additions
 
+### Inhomogeneous boundaries
+
 The code has been modified to deal with inhomogeneous boundary conditions, on regular geometries only at the moment.
+
+### Modified assimilation models
+
+The SurfML model has been implemented, along with a "Forced" model.
