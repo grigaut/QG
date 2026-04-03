@@ -31,7 +31,7 @@ from qg.eNATL60.var_keys import LATITUDE, LONGITUDE, SSH, STREAMFUNCTION, TIME
 from qg.logging import setup_root_logger, getLogger
 from qg.cli import ScriptArgs
 from qg.config import (
-    load_model_config,
+    load_minimal_model_config,
     load_optimization_config,
     load_output_config,
     load_regularization_config,
@@ -65,7 +65,7 @@ logger = getLogger(__name__)
 # Configuratiosn
 
 ## Model
-config = load_model_config(args.config)
+config = load_minimal_model_config(args.config)
 
 sigma_bc = 16
 sigma_ic = 16
@@ -73,16 +73,8 @@ sigma_ic = 16
 
 ## Areas
 n_ens = config["n_ens"]
-nx = config["xv"].shape[0] - 1
-ny = config["yv"].shape[0] - 1
-yv = config["yv"]
-xv = config["xv"]
-
-Lx = xv[-1] - xv[0]
-Ly = yv[-1] - yv[0]
-
-dx = Lx / nx
-dy = Ly / ny
+dx = config["dx"]
+dy = config["dy"]
 dt = config["dt"]
 n_year = int(365 * 24 * 3600 / dt)
 
@@ -141,10 +133,23 @@ ds = load_datasets(files[0], format_func=format_ds)
 lons, lats = compute_lonlat_from_regular_xy_grid(
     ds[LONGITUDE],
     ds[LATITUDE],
-    dx=dx.item(),
-    dy=dy.item(),
+    dx=dx,
+    dy=dy,
 )
 xs, ys = lonlat_to_xy(lons, lats)
+
+# Width for boundaries
+
+bc = 4
+
+# Space
+
+xv = torch.arange(xs.shape[0], **specs) * dx
+yv = torch.arange(ys.shape[1], **specs) * dy
+
+nx = xv.shape[0] - 1
+ny = yv.shape[0] - 1
+mask = torch.ones(nx, ny, **specs)
 
 ### Compute β-plane parameters
 
@@ -173,7 +178,7 @@ n_optim = optim_config["optimization_steps"]
 n_cycles = optim_config["cycles"]
 comparison_interval = optim_config["comparison_interval"]
 
-separation = int(dt * optim_config["separation"] / 3600 / 24)
+separation = int(optim_config["separation"] * dt / 3600 / 24)
 
 msg_optim = (
     f"Performing {n_cycles} cycles with up to {n_optim} optimization steps.\n"
@@ -212,6 +217,7 @@ if folder.is_dir():
     msg = f"{folder} already exists and will be overidden."
     logger.warning(msg)
     shutil.rmtree(folder, ignore_errors=True)
+    folder.mkdir()
 else:
     folder.mkdir()
     gitignore = folder.joinpath(".gitignore")
@@ -258,17 +264,11 @@ logger.info(
 msg = f"Running code using {specs['device']}"
 logger.info(msg)
 
-Ly = yv[-1] - yv[0]
-
-
-# Width for boundaries
-
-
 config_model = {
-    "xv": config["xv"][bc:-bc],
-    "yv": config["yv"][bc:-bc],
+    "xv": xv[bc:-bc],
+    "yv": yv[bc:-bc],
     "n_ens": config["n_ens"],
-    "mask": config["mask"][bc:-bc, bc:-bc],
+    "mask": mask[bc:-bc, bc:-bc],
     "flux_stencil": config["flux_stencil"],
     "H": config["H"][:2],
     "g_prime": config["g_prime"][:2],
@@ -285,7 +285,8 @@ g1, g2 = config["g_prime"][0, 0, 0], config["g_prime"][1, 0, 0]
 
 qg = SurfML(config_model)
 L: float = dx
-beta_effect_w = config["beta"] * ((yv[:-1] + yv[1:]) / 2 - qg.y0)
+
+beta_effect_w = beta * ((yv[:-1] + yv[1:]) / 2 - qg.y0)
 
 
 def update_loss(
@@ -404,6 +405,11 @@ def build_compute_q_rg(A11, A12):
     )
 
 
+def extract_psi_bc(psi: torch.Tensor) -> Boundaries:
+    """Extract psi."""
+    return Boundaries.extract(psi, bc, -bc - 1, bc, -bc - 1, 2)
+
+
 outputs = []
 for c in range(n_cycles):
     torch.cuda.reset_peak_memory_stats()
@@ -492,7 +498,7 @@ for c in range(n_cycles):
             torch.tensor(p, **specs).unsqueeze(0).unsqueeze(0) / f0
             for p in ds_interp["psi_filt"].to_numpy()
         ]
-        psi_bcs = [psi[..., bc:-bc, bc:-bc] for psi in psis_filt]
+        psi_bcs = [extract_psi_bc(psi) for psi in psis_filt]
 
     t0 = ds_interp[TIME][0]
     times = (ds_interp[TIME] - t0).dt.total_seconds().to_numpy()
@@ -512,9 +518,6 @@ for c in range(n_cycles):
     msg = f"Cycle {step(c + 1, n_cycles)}: eNATL60 data loaded and processed."
     logger.info(box(msg, style="round"))
 
-    psi_bcs = [
-        Boundaries.extract(psi, bc, -bc - 1, bc, -bc - 1, 2) for psi in psis_filt
-    ]
     psi_bc_interp = QuadraticInterpolation(times, psi_bcs)
 
     space_params, time_params = gaussian_exp_field(
@@ -532,7 +535,7 @@ for c in range(n_cycles):
     kappa: torch.Tensor = torch.tensor(0, **specs, requires_grad=True)
     numel = kappa.numel() + coefs.numel()
     params = [
-        {"params": [kappa], "lr": 1e-1, "name": "κ"},
+        {"params": [kappa], "lr": 1e-2, "name": "κ"},
         {
             "params": list(coefs.values()),
             "lr": 1e0,

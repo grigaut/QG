@@ -34,6 +34,7 @@ class SurfML(QGFV):
     @alpha.setter
     def alpha(self, alpha: torch.Tensor) -> None:
         self._alpha = alpha
+        self.compute_auxillary_matrices()
         self._set_solver()
 
     @property

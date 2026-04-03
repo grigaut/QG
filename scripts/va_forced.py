@@ -173,12 +173,12 @@ curl_tau = compute_double_gyre_wind_curl(config.pop("tau0"), xv, yv, config["n_e
 qg_3l = QGFV(config)
 qg_3l.set_wind_forcing(curl_tau)
 
-if (f := sim_config["startup_file"]) is not None:
-    startup = torch.load(f)
-    qg_3l.set_psiq(
-        startup["psi"].to(**specs),
-        startup["q"].to(**specs),
-    )
+# if (f := sim_config["startup_file"]) is not None:
+startup = torch.load("data/data.pt")
+qg_3l.set_psiq(
+    startup["psi"].to(**specs),
+    startup["q"].to(**specs),
+)
 saver = SaveState(folder)
 saver.save("ic.pt", psi=qg_3l.psi, q=qg_3l.q)
 saver.copy_config(args.config)
@@ -211,9 +211,6 @@ config_sliced = {
 H1, H2 = config["H"][0, 0, 0], config["H"][1, 0, 0]
 g1, g2 = config["g_prime"][0, 0, 0], config["g_prime"][1, 0, 0]
 
-beta_effect = config["beta"] * (
-    (yv[1 + jmin : jmax + 1] + yv[jmin:jmax]) / 2 - qg_3l.y0
-)
 beta_effect_w = config["beta"] * (
     (yv[1 + jmin - bc : jmax + bc + 1] + yv[jmin - bc : jmax + bc]) / 2 - qg_3l.y0
 )
@@ -260,18 +257,18 @@ for c in range(n_cycles):
     psi0 = psis[0]
     psi0_mean = crop(psis[0][:, :1], bc).mean()
 
-    var_ref = torch.stack([crop(psi[0, 0], bc) for psi in psis]).var()
-
     ## Scaling parameters
 
     # time integration
-    for n in range(1, n_steps + 1):
+    for n in range(1, n_steps):
         qg_3l.step()  # one RK3 integration step
         times.append(qg_3l.time.item())
         psis.append(qg_3l.psi[:, :1, psi_slice_w[0], psi_slice_w[1]])
 
     msg = f"Cycle {step(c + 1, n_cycles)}: Model spin-up completed."
     logger.info(box(msg, style="round"))
+
+    var_ref = torch.stack([crop(psi[0, 0], bc) for psi in psis]).var()
 
     psi_bcs = [Boundaries.extract(psi, bc, -bc - 1, bc, -bc - 1, 2) for psi in psis]
     psi_bc_interp = QuadraticInterpolation(times, psi_bcs)

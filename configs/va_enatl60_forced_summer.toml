@@ -2,22 +2,15 @@ n_ens = 1
 
 # Space
 
-nx = 76
-ny = 111
-
-Lx = 760_000
-Ly = 1_110_000
+dx = 10000
+dy = 10000
 
 # Layers
-H = [400, 1100, 2600]
-g_prime = [9.81, 0.025, 0.0125]
+H = [400, 1100]
+g_prime = [9.81, 0.025]
 
 # Water density
 rho0 = 1000.0
-
-# Beta-Plane
-# f0 = 9.375e-5
-# beta = 1.754e-11
 
 # Drag
 bottom_drag_coef = 3.60577e-8
@@ -34,7 +27,6 @@ duration = 240 # Number of steps
 
 # Optimization
 optimization_steps = 200
-comparison_interval = 1
 cycles = 4
 separation = 0
 ## Regularization

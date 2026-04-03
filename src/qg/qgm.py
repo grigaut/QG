@@ -26,6 +26,8 @@ class QGFV:
     """Finite volume multi-layer QG solver."""
 
     with_bc = False
+    psi: torch.Tensor
+    q: torch.Tensor
 
     @property
     def time(self) -> torch.Tensor:

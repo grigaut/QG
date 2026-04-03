@@ -51,6 +51,38 @@ def load_model_config(file: str | Path) -> dict[str, Any]:
     }
 
 
+def load_minimal_model_config(file: str | Path) -> dict[str, Any]:
+    """Load model configuration from toml file.
+
+    Args:
+        file (str | Path): Toml file.
+
+    Returns:
+        dict[str, Any]: Configuration.
+    """
+    config_data = toml.load(Path(file))
+    specs = defaults.get()
+
+    H = torch.tensor(config_data["H"], **specs)[:, None, None]
+    g_prime = torch.tensor(config_data["g_prime"], **specs)[:, None, None]
+
+    return {
+        "dx": config_data.get("dx"),
+        "dy": config_data.get("dy"),
+        "n_ens": config_data.get("n_ens", 1),
+        "flux_stencil": config_data.get("flux_stencil", 5),
+        "H": H,
+        "g_prime": g_prime,
+        "tau0": config_data.get("tau0", 8e-5),
+        "f0": config_data.get("f0", 9.375e-5),
+        "beta": config_data.get("beta", 0),
+        "bottom_drag_coef": config_data.get("bottom_drag_coef", 0),
+        "device": specs["device"],
+        "dt": config_data["dt"],  # time-step (s)
+        "rho0": config_data.get("rho0", 1000),
+    }
+
+
 def load_output_config(file: str | Path) -> dict[str, Any]:
     """Load output configuration from toml file.
 
