@@ -35,14 +35,14 @@ from qg.solver.boundary_conditions.base import Boundaries
 from qg.space import compute_xy_q
 from qg.specs import defaults
 from qg.stretching_matrix import compute_A_tilde
-from qg.surfml import SurfML
+from qg.rgsi import RGSI
 from qg.utils.cropping import crop
 from qg.wind import compute_double_gyre_wind_curl
 
 torch.backends.cudnn.deterministic = True
 torch.set_grad_enabled(False)
 
-args = ScriptArgs.from_cli(config_default=Path("configs/va_surfml_z2.toml"))
+args = ScriptArgs.from_cli(config_default=Path("configs/va_rgsi_z2.toml"))
 specs = defaults.get()
 
 setup_root_logger(args.verbose)
@@ -402,7 +402,7 @@ for c in range(n_cycles):
     for o in range(n_optim):
         torch.cuda.reset_peak_memory_stats()
         optimizer.zero_grad()
-        qg = SurfML(config_sliced)
+        qg = RGSI(config_sliced)
         qg.y0 = qg_3l.y0
         qg.set_wind_forcing(curl_tau[..., imin:imax, jmin:jmax])
         qg.reset_time()

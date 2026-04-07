@@ -49,14 +49,14 @@ from qg.solver.boundary_conditions.base import Boundaries
 from qg.space import compute_xy_q
 from qg.specs import defaults
 from qg.stretching_matrix import compute_A_tilde
-from qg.surfml import SurfML
+from qg.rgsi import RGSI
 from qg.utils.cropping import crop
 from qg.utils.storage import get_path_from_env
 
 torch.backends.cudnn.deterministic = True
 torch.set_grad_enabled(False)
 
-args = ScriptArgs.from_cli(config_default=Path("configs/va_enatl60_surfml_summer.toml"))
+args = ScriptArgs.from_cli(config_default=Path("configs/va_enatl60_rgsi_summer.toml"))
 specs = defaults.get()
 
 setup_root_logger(args.verbose)
@@ -283,7 +283,7 @@ H1, H2 = config["H"][0, 0, 0], config["H"][1, 0, 0]
 g1, g2 = config["g_prime"][0, 0, 0], config["g_prime"][1, 0, 0]
 
 
-qg = SurfML(config_model)
+qg = RGSI(config_model)
 L: float = dx
 
 beta_effect_w = beta * ((yv[:-1] + yv[1:]) / 2 - qg.y0)
@@ -564,7 +564,7 @@ for c in range(n_cycles):
     for o in range(n_optim):
         torch.cuda.reset_peak_memory_stats()
         optimizer.zero_grad()
-        qg = SurfML(config_model)
+        qg = RGSI(config_model)
         qg.reset_time()
 
         with torch.enable_grad():

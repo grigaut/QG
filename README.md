@@ -10,4 +10,4 @@ The code has been modified to deal with inhomogeneous boundary conditions, on re
 
 ### Modified assimilation models
 
-The SurfML model has been implemented, along with a "Forced" model.
+The RGSI model has been implemented, along with a "Forced" model.
