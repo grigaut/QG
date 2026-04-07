@@ -26,7 +26,7 @@ bottom_drag_coef = 3.60577e-8
 dt = 7200
 
 # Output
-folder = "surfml"
+folder = "rgsi_z3"
 prefix = "results_optim"
 
 # Simulation
@@ -42,7 +42,7 @@ separation = 250
 gamma = 100
 
 # Subdomain
-imin = 32
-imax = 96
-jmin = 256
-jmax = 384
+imin = 112
+imax = 176
+jmin = 64
+jmax = 192

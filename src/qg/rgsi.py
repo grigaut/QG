@@ -21,7 +21,7 @@ from qg.stretching_matrix import compute_A_tilde
 logger = getLogger(__name__)
 
 
-class SurfML(QGFV):
+class RGSI(QGFV):
     _alpha: torch.Tensor = None
 
     @property

@@ -10,7 +10,7 @@ cd $SRCDIR
 
 date
 
-LD_PRELOAD=./.venv/lib/libstdc++.so.6 .venv/bin/python3 -u scripts/va_enatl60_surfml.py $@
+LD_PRELOAD=./.venv/lib/libstdc++.so.6 .venv/bin/python3 -u scripts/va_rgsi.py $@
 
 date
 

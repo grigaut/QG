@@ -2,10 +2,10 @@
 SRCDIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd $SRCDIR
 
-# SurfML
+# RGSI
 
-./scripts/oar/launch_va_enatl60_surfml.sh --config=config/va_enatl60_surfml_summer.toml -v "$@"
-./scripts/oar/launch_va_enatl60_surfml.sh --config=config/va_enatl60_surfml_winter.toml -v "$@"
+./scripts/oar/launch_va_enatl60_rgsi.sh --config=config/va_enatl60_rgsi_summer.toml -v "$@"
+./scripts/oar/launch_va_enatl60_rgsi.sh --config=config/va_enatl60_rgsi_winter.toml -v "$@"
 
 # Forced
 

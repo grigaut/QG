@@ -19,7 +19,7 @@ bottom_drag_coef = 3.60577e-8
 dt = 7200
 
 # Output
-folder = "enatl60_surfml_winter"
+folder = "enatl60_rgsi_winter"
 prefix = "results_optim"
 
 # Simulation
